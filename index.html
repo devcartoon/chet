@@ -1,0 +1,2863 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#17212b" />
+<title>SupaChat — تواصل بلا حدود</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] } } } };
+</script>
+
+<style>
+  * { font-family: 'Cairo', system-ui, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; }
+  body { background: #ffffff; color: #0f172a; transition: background 0.25s, color 0.25s; }
+  body.dark { background: #0e1621; color: #e9edef; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+  body.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+
+  .surface { background: #ffffff; }
+  .surface-2 { background: #f4f4f5; }
+  .surface-3 { background: #e9edef; }
+  body.dark .surface { background: #17212b; }
+  body.dark .surface-2 { background: #0e1621; }
+  body.dark .surface-3 { background: #232e3c; }
+
+  .text-primary { color: #0f172a; }
+  .text-muted { color: #707579; }
+  body.dark .text-primary { color: #e9edef; }
+  body.dark .text-muted { color: #7f91a4; }
+
+  .border-soft { border-color: rgba(0,0,0,0.06); }
+  body.dark .border-soft { border-color: rgba(255,255,255,0.05); }
+
+  .chat-bg {
+    background-color: #e7e0d2;
+    background-image: 
+      radial-gradient(circle at 15% 25%, rgba(52,120,246,0.10) 0%, transparent 35%),
+      radial-gradient(circle at 85% 75%, rgba(6,182,212,0.10) 0%, transparent 35%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%23000' opacity='0.03'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3Ccircle cx='60' cy='15' r='1.5'/%3E%3Ccircle cx='100' cy='25' r='2'/%3E%3Ccircle cx='30' cy='60' r='1.5'/%3E%3Ccircle cx='90' cy='65' r='2'/%3E%3Ccircle cx='15' cy='100' r='2'/%3E%3Ccircle cx='70' cy='95' r='1.5'/%3E%3Ccircle cx='105' cy='105' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  }
+  body.dark .chat-bg {
+    background-color: #0e1621;
+    background-image: 
+      radial-gradient(circle at 15% 25%, rgba(52,120,246,0.15) 0%, transparent 35%),
+      radial-gradient(circle at 85% 75%, rgba(6,182,212,0.12) 0%, transparent 35%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%23fff' opacity='0.02'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3Ccircle cx='60' cy='15' r='1.5'/%3E%3Ccircle cx='100' cy='25' r='2'/%3E%3Ccircle cx='30' cy='60' r='1.5'/%3E%3Ccircle cx='90' cy='65' r='2'/%3E%3Ccircle cx='15' cy='100' r='2'/%3E%3Ccircle cx='70' cy='95' r='1.5'/%3E%3Ccircle cx='105' cy='105' r='2'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes pulseRing { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.7); opacity: 0; } }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes ringShake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-15deg); } 75% { transform: rotate(15deg); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes heartFloat { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-150px) scale(1.8); opacity: 0; } }
+
+  .anim-fade { animation: fadeIn 0.2s ease; }
+  .anim-slide { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  .anim-pop { animation: popIn 0.35s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+  .float-anim { animation: float 3s ease-in-out infinite; }
+  .pulse-mic { animation: pulseRing 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  .spin { animation: spin 0.8s linear infinite; }
+  .ring-shake { animation: ringShake 0.5s ease-in-out infinite; }
+  .heart-float { animation: heartFloat 2s ease-out forwards; }
+
+  .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); }
+  body.dark .glass { background: rgba(23, 33, 43, 0.9); }
+
+  .gradient-btn { background: linear-gradient(135deg, #3478f6 0%, #06b6d4 100%); transition: all 0.2s ease; }
+  .gradient-btn:hover:not(:disabled) { box-shadow: 0 8px 24px rgba(52,120,246,0.35); transform: translateY(-1px); }
+  .gradient-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .gradient-purple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+  .tab-active { background: linear-gradient(135deg, #3478f6, #06b6d4); color: white !important; }
+
+  emoji-picker { --background: white; --border-color: rgba(0,0,0,0.08); }
+  body.dark emoji-picker { --background: #17212b; --border-color: rgba(255,255,255,0.08); --input-color: white; }
+
+  #root { height: 100vh; height: 100dvh; overflow: hidden; }
+  .app-shell { display: flex; height: 100%; overflow: hidden; position: relative; }
+
+  @media (max-width: 768px) {
+    .sidebar { position: absolute; top: 0; left: 0; right: 0; bottom: 68px; z-index: 20; display: flex; flex-direction: column; overflow: hidden; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+    .sidebar.hidden-mobile { transform: translateX(100%); }
+    .chat-window { position: absolute; top: 0; left: 0; right: 0; bottom: 68px; z-index: 30; display: none; flex-direction: column; overflow: hidden; }
+    .chat-window:not(.hidden) { display: flex !important; }
+    .bottom-nav { display: flex !important; z-index: 100 !important; position: fixed; bottom: 0; left: 0; right: 0; }
+    .nav-rail { display: none !important; }
+  }
+
+  @media (min-width: 769px) {
+    .bottom-nav { display: none !important; }
+    .app-shell { display: grid; grid-template-columns: 72px 380px 1fr; height: 100%; overflow: hidden; }
+    .nav-rail { display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; border-left: 1px solid rgba(0,0,0,0.06); background: #ffffff; z-index: 5; overflow-y: auto; overflow-x: hidden; }
+    .nav-rail::-webkit-scrollbar { width: 0; }
+    body.dark .nav-rail { border-left-color: rgba(255,255,255,0.05); background: #17212b; }
+    .nav-rail-item { position: relative; width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; color: #707579; flex-shrink: 0; }
+    body.dark .nav-rail-item { color: #7f91a4; }
+    .nav-rail-item:hover { background: rgba(0,0,0,0.05); color: #3478f6; }
+    body.dark .nav-rail-item:hover { background: rgba(255,255,255,0.05); color: #3478f6; }
+    .nav-rail-item.active { background: linear-gradient(135deg, #3478f6, #06b6d4); color: white !important; box-shadow: 0 6px 18px rgba(52,120,246,0.35); }
+    .nav-rail-item .rail-badge { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 2px solid #ffffff; }
+    body.dark .nav-rail-item .rail-badge { border-color: #17212b; }
+    .nav-rail-item .rail-label { position: absolute; top: 50%; right: 100%; transform: translateY(-50%) translateX(-8px); background: #17212b; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: all 0.15s ease; z-index: 100; margin-right: 8px; }
+    body.dark .nav-rail-item .rail-label { background: #e9edef; color: #17212b; }
+    .nav-rail-item:hover .rail-label { opacity: 1; transform: translateY(-50%) translateX(0); }
+    .sidebar { width: 100%; display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid rgba(0,0,0,0.06); }
+    body.dark .sidebar { border-left-color: rgba(255,255,255,0.05); }
+    .chat-window { display: flex; flex-direction: column; overflow: hidden; }
+    .chat-window.hidden { display: flex !important; }
+  }
+
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 22px; border-radius: 14px; z-index: 99999; animation: slideUp 0.3s ease; font-weight: 600; font-size: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); max-width: 90vw; text-align: center; }
+
+  .story-ring { background: conic-gradient(from 180deg, #f59e0b, #ec4899, #8b5cf6, #3478f6, #06b6d4, #10b981, #f59e0b); padding: 2.5px; border-radius: 50%; }
+  .story-ring-seen { background: #7f91a4; padding: 2px; border-radius: 50%; }
+
+  .chat-item { transition: all 0.15s ease; cursor: pointer; }
+  .chat-item:hover { background: rgba(0,0,0,0.035); }
+  body.dark .chat-item:hover { background: rgba(255,255,255,0.03); }
+  .chat-item.active { background: rgba(52,120,246,0.13) !important; }
+  body.dark .chat-item.active { background: rgba(52,120,246,0.2) !important; }
+
+  .setting-row { transition: background 0.15s; cursor: pointer; }
+  .setting-row:hover { background: rgba(0,0,0,0.03); }
+  body.dark .setting-row:hover { background: rgba(255,255,255,0.03); }
+
+  .switch { width: 44px; height: 24px; background: #cbd5e1; border-radius: 12px; position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+  body.dark .switch { background: #2b3a4d; }
+  .switch.on { background: #3478f6; }
+  .switch::after { content: ''; position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .switch.on::after { transform: translateX(-20px); }
+
+  .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; border-top: 1px solid rgba(0,0,0,0.06); background: rgba(255,255,255,0.98); backdrop-filter: blur(24px) saturate(180%); align-items: center; justify-content: space-around; padding-bottom: env(safe-area-inset-bottom); }
+  body.dark .bottom-nav { border-top-color: rgba(255,255,255,0.05); background: rgba(23,33,43,0.98); }
+  .bottom-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 4px; color: #707579; font-size: 10px; font-weight: 600; position: relative; cursor: pointer; transition: color 0.15s; }
+  body.dark .bottom-nav-item { color: #7f91a4; }
+  .bottom-nav-item.active { color: #3478f6; }
+  .bottom-nav-item .badge { position: absolute; top: 4px; right: 50%; transform: translateX(60%); background: #ef4444; color: white; font-size: 9px; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; padding: 0 4px; border: 2px solid white; }
+  body.dark .bottom-nav-item .badge { border-color: #17212b; }
+
+  .context-menu { position: fixed; z-index: 100; min-width: 200px; max-width: 280px; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); overflow: hidden; }
+
+  .upload-progress { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #17212b; color: white; padding: 14px 24px; border-radius: 16px; z-index: 9999; min-width: 280px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .upload-progress .bar { height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .upload-progress .bar > div { height: 100%; background: linear-gradient(90deg, #3478f6, #06b6d4); transition: width 0.3s ease; }
+
+  video, img { max-width: 100%; }
+  .video-container { position: relative; max-width: 320px; border-radius: 12px; overflow: hidden; }
+  .video-container video { display: block; border-radius: 12px; }
+
+  .media-viewer { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.98); display: flex; flex-direction: column; animation: fadeIn 0.2s ease; }
+  .media-viewer-content { flex: 1; display: flex; align-items: center; justify-content: center; padding: 60px 20px 100px; overflow: hidden; }
+  .media-viewer-content img, .media-viewer-content video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+  .media-viewer-header { position: absolute; top: 0; left: 0; right: 0; padding: 12px 16px; display: flex; align-items: center; gap: 12px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); color: white; z-index: 10; }
+  .media-viewer-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; display: flex; gap: 12px; justify-content: center; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); z-index: 10; }
+  .media-viewer-btn { width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+  .media-viewer-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+
+  .call-screen { position: fixed; inset: 0; z-index: 400; background: linear-gradient(135deg, #0f172a, #1e293b); display: flex; flex-direction: column; color: white; overflow: hidden; }
+  .call-video-main { position: absolute; inset: 0; background: #000; }
+  .call-video-main video { width: 100%; height: 100%; object-fit: cover; }
+  .call-video-self { position: absolute; top: 80px; right: 16px; width: 110px; height: 160px; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.3); background: #000; cursor: pointer; z-index: 10; }
+  .call-video-self video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .call-audio-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px; }
+  .call-avatar-big { width: 160px; height: 160px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 60px; font-weight: 700; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 4px solid rgba(255,255,255,0.15); position: relative; }
+  .call-avatar-big video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .call-header { position: absolute; top: 0; left: 0; right: 0; padding: 16px; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); z-index: 5; }
+  .call-header-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+  .call-header-btn:hover { background: rgba(255,255,255,0.25); }
+  .call-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 24px 20px 40px; display: flex; flex-direction: column; gap: 16px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent); z-index: 5; }
+  .call-controls { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .call-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; gap: 2px; }
+  .call-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+  .call-btn.active { background: rgba(255,255,255,0.9); color: #0f172a; }
+  .call-btn.danger { background: #ef4444; }
+  .call-btn.danger:hover { background: #dc2626; }
+  .call-btn.success { background: #10b981; animation: pulse 1.5s infinite; }
+  .call-btn-label { font-size: 9px; font-weight: 600; }
+
+  .incoming-call-screen { position: fixed; inset: 0; z-index: 400; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 60px 24px 60px; color: white; animation: fadeIn 0.3s ease; }
+
+  .profile-hero { position: relative; height: 240px; background: linear-gradient(135deg, #3478f6 0%, #06b6d4 100%); display: flex; align-items: flex-end; padding: 20px; color: white; }
+  .profile-hero-avatar { width: 100px; height: 100px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.3); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 700; background: rgba(0,0,0,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+
+  .status-reaction-bubble {
+    position: absolute; bottom: 100px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(20px);
+    padding: 10px 16px;
+    border-radius: 30px;
+    display: flex; gap: 8px;
+    z-index: 30;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .status-reaction-bubble button {
+    font-size: 26px;
+    transition: transform 0.2s;
+    cursor: pointer;
+    background: none; border: none;
+    padding: 4px;
+    line-height: 1;
+  }
+  .status-reaction-bubble button:hover { transform: scale(1.3); }
+
+  .online-pulse { animation: pulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script>
+// ============================================================
+//  SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://gyoytwbpvulzvljuwfis.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__2f2UEhPHE3d3cibhTga5w_NFmHWYZJ';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage, storageKey: 'supachat_auth' },
+  realtime: { params: { eventsPerSecond: 20 } }
+});
+
+// ============================================================
+//  STATE
+// ============================================================
+const state = {
+  user: null, profile: null, chats: [], activeChat: null, messages: {},
+  activeTab: 'all', activeSection: 'chats', searchQuery: '', replyTo: null,
+  messageSubs: {}, globalSub: null, callSub: null,
+  recording: false, recordingStart: 0,
+  settings: { theme: localStorage.getItem('supachat_theme') || 'dark', enterToSend: true },
+  currentCall: null, peerConnection: null, localStream: null, remoteStream: null,
+  callChannel: null, isIncomingCall: false, iceAddedCount: 0,
+  isMuted: false, isVideoEnabled: true, isFrontCamera: true,
+  callTimerInterval: null, callSeconds: 0, callConnected: false,
+  statusReactionChannel: null
+};
+
+// ============================================================
+//  HELPERS
+// ============================================================
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = (n, cls = 'w-5 h-5') => `<i data-lucide="${n}" class="${cls}"></i>`;
+const refreshIcons = () => { try { window.lucide && lucide.createIcons(); } catch(e){} };
+
+const AV_GRADIENTS = [
+  'linear-gradient(135deg,#8b5cf6,#ec4899)', 'linear-gradient(135deg,#3478f6,#06b6d4)',
+  'linear-gradient(135deg,#10b981,#06b6d4)', 'linear-gradient(135deg,#f59e0b,#ef4444)',
+  'linear-gradient(135deg,#8b5cf6,#3478f6)', 'linear-gradient(135deg,#ec4899,#f43f5e)',
+  'linear-gradient(135deg,#14b8a6,#06b6d4)', 'linear-gradient(135deg,#a855f7,#ec4899)'
+];
+const avGrad = (id) => {
+  if (!id) return AV_GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return AV_GRADIENTS[Math.abs(hash) % AV_GRADIENTS.length];
+};
+
+function fmtTime(d) { try { return new Date(d).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
+function fmtDay(d) {
+  try {
+    const date = new Date(d); const today = new Date(); today.setHours(0,0,0,0);
+    const dd = new Date(date); dd.setHours(0,0,0,0);
+    const diff = Math.floor((today - dd) / 86400000);
+    if (diff === 0) return 'اليوم'; if (diff === 1) return 'أمس';
+    if (diff < 7 && diff > 0) return date.toLocaleDateString('ar-EG', { weekday: 'long' });
+    return date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+  } catch { return ''; }
+}
+function fmtDuration(sec) { sec = Math.max(0, Math.floor(sec || 0)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; }
+function fmtLastSeen(d) {
+  if (!d) return '';
+  try {
+    const diff = Math.floor((Date.now() - new Date(d)) / 60000);
+    if (diff < 1) return 'الآن'; if (diff < 60) return `قبل ${diff} د`;
+    const h = Math.floor(diff / 60); if (h < 24) return `قبل ${h} س`;
+    const days = Math.floor(h / 24); if (days < 7) return `قبل ${days} ي`;
+    return new Date(d).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+  } catch { return ''; }
+}
+function fmtBirthday(d) { if (!d) return ''; try { return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }); } catch { return ''; } }
+function calcAge(d) {
+  if (!d) return '';
+  try {
+    const bd = new Date(d); const today = new Date();
+    let age = today.getFullYear() - bd.getFullYear();
+    const m = today.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+    return age;
+  } catch { return ''; }
+}
+function toast(msg, type = 'info', duration = 3000) {
+  const colors = { info: '#3478f6', success: '#10b981', error: '#ef4444', warning: '#f59e0b' };
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.background = colors[type] || colors.info;
+  el.style.color = '#fff';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function applyTheme() {
+  document.body.classList.toggle('dark', state.settings.theme === 'dark');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = state.settings.theme === 'dark' ? '#17212b' : '#ffffff';
+}
+function toggleTheme() { state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('supachat_theme', state.settings.theme); applyTheme(); }
+
+// ============================================================
+//  PROFILE
+// ============================================================
+async function getMyProfile() {
+  if (!state.user) return null;
+  const { data, error } = await sb.from('profiles').select('*').eq('id', state.user.id).maybeSingle();
+  if (error) { console.warn('getMyProfile:', error); return null; }
+  return data;
+}
+async function getProfileById(userId) {
+  const { data, error } = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if (error) { console.warn('getProfileById:', error); return null; }
+  return data;
+}
+async function ensureProfile(user) {
+  let profile = await getMyProfile();
+  if (profile) return profile;
+  await new Promise(r => setTimeout(r, 800));
+  profile = await getMyProfile();
+  if (profile) return profile;
+  const username = (user.user_metadata?.username || user.email?.split('@')[0] || 'user_' + user.id.slice(0, 8)).replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+  const fullName = user.user_metadata?.full_name || username;
+  const { data, error } = await sb.from('profiles').insert({ id: user.id, username, full_name: fullName }).select().single();
+  if (error) {
+    if (error.code === '23505') { const p = await getMyProfile(); if (p) return p; }
+    throw new Error('فشل إنشاء الملف: ' + error.message);
+  }
+  return data;
+}
+async function saveMyProfile(updates) {
+  let current = await getMyProfile();
+  if (!current) {
+    const { data, error } = await sb.from('profiles').insert({
+      id: state.user.id,
+      username: state.profile?.username || 'user_' + state.user.id.slice(0, 8),
+      full_name: updates.full_name || 'مستخدم', ...updates
+    }).select().single();
+    if (error) throw new Error('فشل الإنشاء: ' + error.message);
+    return data;
+  }
+  if (updates.username && updates.username !== current.username) {
+    const { data: taken } = await sb.from('profiles').select('id').eq('username', updates.username).neq('id', state.user.id).maybeSingle();
+    if (taken) throw new Error('اسم المستخدم محجوز');
+  }
+  const { data, error } = await sb.from('profiles').update(updates).eq('id', state.user.id).select().single();
+  if (error) {
+    if (error.code === '23505') throw new Error('اسم المستخدم محجوز');
+    if (error.code === '42501' || error.message.includes('permission')) throw new Error('لا تملك صلاحية التحديث');
+    throw new Error('فشل: ' + error.message);
+  }
+  return data;
+}
+
+// ============================================================
+//  AUTH
+// ============================================================
+async function signUp(email, password, username, fullName) {
+  const { data: existing } = await sb.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) throw new Error('اسم المستخدم محجوز');
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { username, full_name: fullName || username }, emailRedirectTo: window.location.origin }
+  });
+  if (error) throw error;
+  if (!data.user) throw new Error('فشل التسجيل');
+  if (data.session) { state.user = data.user; state.profile = await ensureProfile(data.user); }
+  return data;
+}
+async function signIn(email, password) {
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  state.user = data.user;
+  state.profile = await ensureProfile(data.user);
+  await updateOnlineStatus(true);
+  return data;
+}
+async function signOut() {
+  try { if (state.user) await sb.from('profiles').update({ is_online: false, last_seen: new Date().toISOString() }).eq('id', state.user.id); } catch (e) {}
+  try { await sb.auth.signOut(); } catch (e) {}
+  Object.values(state.messageSubs).forEach(s => { try { s.unsubscribe(); } catch(e){} });
+  state.messageSubs = {};
+  if (state.globalSub) { try { state.globalSub.unsubscribe(); } catch(e){} state.globalSub = null; }
+  if (state.callSub) { try { state.callSub.unsubscribe(); } catch(e){} state.callSub = null; }
+  if (state.callChannel) { try { state.callChannel.unsubscribe(); } catch(e){} state.callChannel = null; }
+  if (state.statusReactionChannel) { try { state.statusReactionChannel.unsubscribe(); } catch(e){} state.statusReactionChannel = null; }
+  state.user = null; state.profile = null; state.chats = []; state.activeChat = null; state.messages = {};
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('sb-') || k.includes('supabase') || k === 'supachat_auth' || k === 'supachat_theme') localStorage.removeItem(k);
+    });
+  } catch (e) {}
+}
+async function updateOnlineStatus(isOnline) {
+  if (!state.user) return;
+  try { await sb.from('profiles').update({ is_online: isOnline, last_seen: new Date().toISOString() }).eq('id', state.user.id); } catch (e) {}
+}
+
+// ============================================================
+//  SEARCH
+// ============================================================
+async function searchUsersAll(query = '') {
+  let q = sb.from('profiles').select('id, username, full_name, avatar_url, is_online, last_seen, bio').neq('id', state.user.id);
+  if (query && query.trim()) {
+    let term = query.trim();
+    if (term.startsWith('@')) term = term.substring(1);
+    term = term.replace(/[%_\\]/g, '\\$&');
+    q = q.or(`username.ilike.%${term}%,full_name.ilike.%${term}%`);
+  }
+  q = q.order('is_online', { ascending: false }).order('full_name').limit(100);
+  const { data, error } = await q;
+  if (error) throw new Error('فشل البحث: ' + error.message);
+  return data || [];
+}
+
+// ============================================================
+//  DATA
+// ============================================================
+async function loadChats() {
+  if (!state.user) return;
+  const { data, error } = await sb.from('chat_members')
+    .select(`chat_id, last_read_at, chats:chat_id (id, type, name, description, avatar_url, created_by, invite_link, created_at, updated_at)`)
+    .eq('user_id', state.user.id);
+  if (error) { console.error('loadChats:', error); return; }
+  const chats = (data || []).map(row => row.chats).filter(Boolean);
+  if (!chats.length) { state.chats = []; renderSidebarContent(); renderNavRail(); renderBottomNav(); return; }
+  const chatIds = chats.map(c => c.id);
+  const { data: membersData } = await sb.from('chat_members')
+    .select(`chat_id, role, user_id, profiles:user_id (id, username, full_name, avatar_url, is_online, last_seen)`)
+    .in('chat_id', chatIds);
+  const membersByChat = {};
+  (membersData || []).forEach(m => {
+    if (!membersByChat[m.chat_id]) membersByChat[m.chat_id] = [];
+    if (m.profiles) membersByChat[m.chat_id].push({ ...m.profiles, role: m.role });
+  });
+  const { data: lastMsgs } = await sb.from('messages')
+    .select('chat_id, id, content, type, sender_id, is_deleted, created_at')
+    .in('chat_id', chatIds).order('created_at', { ascending: false });
+  const lastByChat = {};
+  (lastMsgs || []).forEach(m => { if (!lastByChat[m.chat_id]) lastByChat[m.chat_id] = m; });
+  const unreadByChat = {};
+  const myMemberships = {};
+  data.forEach(row => { myMemberships[row.chat_id] = row.last_read_at; });
+  await Promise.all(chatIds.map(async chatId => {
+    const lastRead = myMemberships[chatId] || '1970-01-01';
+    const { count } = await sb.from('messages').select('id', { count: 'exact', head: true })
+      .eq('chat_id', chatId).gt('created_at', lastRead).neq('sender_id', state.user.id);
+    unreadByChat[chatId] = count || 0;
+  }));
+  state.chats = chats.map(c => ({
+    ...c, members: membersByChat[c.id] || [],
+    last_message: lastByChat[c.id] || null, unread: unreadByChat[c.id] || 0
+  })).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  renderSidebarContent(); renderBottomNav(); renderNavRail();
+}
+
+async function loadMessages(chatId) {
+  const { data, error } = await sb.from('messages')
+    .select('*, sender:sender_id (id, username, full_name, avatar_url)')
+    .eq('chat_id', chatId).order('created_at', { ascending: true }).limit(500);
+  if (error) { console.error('loadMessages:', error); return; }
+  const msgIds = (data || []).map(m => m.id);
+  let reactionsByMsg = {};
+  if (msgIds.length) {
+    const { data: rxns } = await sb.from('reactions').select('*').in('message_id', msgIds);
+    (rxns || []).forEach(r => {
+      if (!reactionsByMsg[r.message_id]) reactionsByMsg[r.message_id] = [];
+      reactionsByMsg[r.message_id].push(r);
+    });
+  }
+  state.messages[chatId] = (data || []).map(m => ({
+    ...m, sender: m.sender, full_name: m.sender?.full_name, username: m.sender?.username,
+    avatar_url: m.sender?.avatar_url, reactions: reactionsByMsg[m.id] || []
+  }));
+  if (state.activeChat?.id === chatId) {
+    await sb.from('chat_members').update({ last_read_at: new Date().toISOString() })
+      .eq('chat_id', chatId).eq('user_id', state.user.id);
+  }
+}
+
+async function sendMessage(chatId, content, type = 'text', mediaUrl = null, opts = {}) {
+  const payload = {
+    chat_id: chatId, sender_id: state.user.id,
+    content: content || '', type, media_url: mediaUrl,
+    reply_to: opts.replyTo || null, media_duration: opts.duration || null
+  };
+  const { data, error } = await sb.from('messages').insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+async function deleteMessage(id) {
+  const { error } = await sb.from('messages').update({ is_deleted: true, content: '', media_url: null }).eq('id', id).eq('sender_id', state.user.id);
+  if (error) throw error;
+}
+async function editMessage(id, content) {
+  const { error } = await sb.from('messages').update({ content, is_edited: true }).eq('id', id).eq('sender_id', state.user.id);
+  if (error) throw error;
+}
+async function toggleReaction(messageId, emoji) {
+  const { data: existing } = await sb.from('reactions').select('id').eq('message_id', messageId).eq('user_id', state.user.id).eq('emoji', emoji).maybeSingle();
+  if (existing) await sb.from('reactions').delete().eq('id', existing.id);
+  else await sb.from('reactions').insert({ message_id: messageId, user_id: state.user.id, emoji });
+}
+
+async function createGroupOrChannel(type, name, desc, memberIds) {
+  const { data: chat, error: chatErr } = await sb.from('chats').insert({
+    type, name, description: desc || null, created_by: state.user.id,
+    invite_link: `${type}-${Math.random().toString(36).slice(2, 10)}`
+  }).select().single();
+  if (chatErr) throw new Error('فشل إنشاء المحادثة: ' + chatErr.message);
+  const members = [{ chat_id: chat.id, user_id: state.user.id, role: 'owner' }];
+  [...new Set(memberIds)].forEach(uid => {
+    if (uid !== state.user.id) members.push({ chat_id: chat.id, user_id: uid, role: 'member' });
+  });
+  const { error: memErr } = await sb.from('chat_members').insert(members);
+  if (memErr) { await sb.from('chats').delete().eq('id', chat.id); throw new Error('فشل إضافة الأعضاء: ' + memErr.message); }
+  return chat;
+}
+
+async function uploadFile(file, bucket = 'chat-media') {
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = `${state.user.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+  if (error) {
+    if (error.message.includes('Bucket not found')) throw new Error(`المجلد "${bucket}" غير موجود`);
+    if (error.message.includes('mime')) throw new Error('نوع الملف غير مدعوم');
+    if (error.message.includes('size')) throw new Error('الملف كبير جداً');
+    throw new Error(error.message);
+  }
+  const { data: urlData } = sb.storage.from(bucket).getPublicUrl(path);
+  return urlData.publicUrl;
+}
+
+// ============================================================
+//  STATUSES + REACTIONS
+// ============================================================
+async function loadAllActiveStatuses() {
+  const now = new Date().toISOString();
+  const { data, error } = await sb.from('statuses')
+    .select('*, profiles:user_id (id, username, full_name, avatar_url)')
+    .gt('expires_at', now).order('created_at', { ascending: false });
+  if (error) { console.error('loadAllActiveStatuses:', error); return []; }
+  return data || [];
+}
+async function publishStatus({ type, content, media_url, background_color }) {
+  const payload = {
+    user_id: state.user.id, type, content: content || '', media_url: media_url || null,
+    background_color: background_color || null,
+    expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString()
+  };
+  const { data, error } = await sb.from('statuses').insert(payload).select().single();
+  if (error) throw new Error('فشل النشر: ' + error.message);
+  return data;
+}
+async function markStatusSeen(statusId) {
+  try { await sb.from('status_views').upsert({ status_id: statusId, viewer_id: state.user.id }, { onConflict: 'status_id,viewer_id' }); } catch (e) {}
+}
+async function loadStatusViews() {
+  const { data } = await sb.from('status_views').select('status_id, viewer_id');
+  const map = {};
+  (data || []).forEach(v => {
+    if (!map[v.status_id]) map[v.status_id] = new Set();
+    map[v.status_id].add(v.viewer_id);
+  });
+  return map;
+}
+async function loadStatusReactions(statusId) {
+  const { data } = await sb.from('status_reactions').select('*').eq('status_id', statusId);
+  return data || [];
+}
+async function addStatusReaction(statusId, emoji) {
+  try {
+    await sb.from('status_reactions').upsert({ status_id: statusId, user_id: state.user.id, emoji }, { onConflict: 'status_id,user_id,emoji' });
+  } catch (e) {}
+}
+
+// ============================================================
+//  FRIENDS
+// ============================================================
+async function ensureFriendship(userId) {
+  if (!state.user || userId === state.user.id) return;
+  try {
+    await sb.from('friendships').upsert([
+      { user_id: state.user.id, friend_id: userId, status: 'accepted' },
+      { user_id: userId, friend_id: state.user.id, status: 'accepted' }
+    ], { onConflict: 'user_id,friend_id' });
+  } catch (e) { console.warn('ensureFriendship:', e); }
+}
+async function ensureFriendshipsForAll() {
+  try {
+    const { data: allUsers } = await sb.from('profiles').select('id').neq('id', state.user.id);
+    if (!allUsers?.length) return;
+    const friendships = [];
+    allUsers.forEach(u => {
+      friendships.push({ user_id: state.user.id, friend_id: u.id, status: 'accepted' });
+      friendships.push({ user_id: u.id, friend_id: state.user.id, status: 'accepted' });
+    });
+    await sb.from('friendships').upsert(friendships, { onConflict: 'user_id,friend_id' });
+  } catch (e) { console.warn('ensureFriendshipsForAll:', e); }
+}
+async function loadFriends() {
+  try {
+    const { data: friendships } = await sb.from('friendships')
+      .select('friend_id, created_at').eq('user_id', state.user.id).eq('status', 'accepted');
+    const friendIds = (friendships || []).map(f => f.friend_id);
+    if (!friendIds.length) return [];
+    const { data: users } = await sb.from('profiles')
+      .select('id, username, full_name, avatar_url, is_online, last_seen, bio')
+      .in('id', friendIds);
+    return users || [];
+  } catch (e) { console.warn('loadFriends:', e); return []; }
+}
+
+// ============================================================
+//  REALTIME
+// ============================================================
+function subscribeGlobal() {
+  if (state.globalSub) { try { state.globalSub.unsubscribe(); } catch(e){} }
+  state.globalSub = sb.channel('global-updates')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, payload => {
+      const u = payload.new;
+      state.chats.forEach(c => {
+        c.members?.forEach(m => { if (m.id === u.id) { m.is_online = u.is_online; m.last_seen = u.last_seen; } });
+      });
+      if (state.activeChat?.type === 'private') renderChatWindow();
+      renderSidebarContent();
+    }).subscribe();
+}
+
+function subscribeToChat(chatId) {
+  if (state.messageSubs[chatId]) return;
+  const ch = sb.channel(`chat:${chatId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, async (payload) => {
+      const m = payload.new;
+      const { data: sender } = await sb.from('profiles').select('id, username, full_name, avatar_url').eq('id', m.sender_id).maybeSingle();
+      m.sender = sender; m.full_name = sender?.full_name; m.username = sender?.username; m.avatar_url = sender?.avatar_url; m.reactions = [];
+      if (!state.messages[chatId]) state.messages[chatId] = [];
+      if (!state.messages[chatId].some(x => x.id === m.id)) state.messages[chatId].push(m);
+      if (state.activeChat?.id === chatId) renderMessages();
+      loadChats(); playNotifSound();
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, (payload) => {
+      const m = payload.new;
+      if (state.messages[chatId]) {
+        const i = state.messages[chatId].findIndex(x => x.id === m.id);
+        if (i > -1) {
+          state.messages[chatId][i] = { ...state.messages[chatId][i], ...m };
+          if (state.activeChat?.id === chatId) renderMessages();
+        }
+      }
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reactions' }, (payload) => {
+      const r = payload.new;
+      for (const cid in state.messages) {
+        const m = state.messages[cid].find(x => x.id === r.message_id);
+        if (m && !m.reactions.some(x => x.id === r.id)) { m.reactions.push(r); if (state.activeChat?.id === cid) renderMessages(); }
+      }
+    }).subscribe();
+  state.messageSubs[chatId] = ch;
+}
+
+function subscribeToCalls() {
+  if (state.callSub) { try { state.callSub.unsubscribe(); } catch(e){} }
+  state.callSub = sb.channel('incoming-calls-' + state.user.id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls', filter: `receiver_id=eq.${state.user.id}` }, async (payload) => {
+      const call = payload.new;
+      if (call.status === 'ongoing' && !state.currentCall && !state.isIncomingCall) {
+        const { data: caller } = await sb.from('profiles').select('id, full_name, username, avatar_url').eq('id', call.caller_id).maybeSingle();
+        if (caller) showIncomingCall(call, caller);
+      }
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls', filter: `receiver_id=eq.${state.user.id}` }, (payload) => {
+      const call = payload.new;
+      if (state.currentCall?.id === call.id && call.ended_at) endCall(true);
+    }).subscribe();
+}
+
+function playNotifSound() {
+  if (document.hidden) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 800;
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {}
+}
+
+// ============================================================
+//  BOOT
+// ============================================================
+async function boot() {
+  try {
+    applyTheme();
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      state.user = session.user;
+      try { state.profile = await ensureProfile(session.user); }
+      catch (e) { console.error(e); toast('فشل تحميل الملف', 'error'); }
+      await updateOnlineStatus(true);
+      renderApp(); subscribeGlobal(); subscribeToCalls(); await loadChats(); startPresence();
+      ensureFriendshipsForAll();
+    } else { renderAuth(); }
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && !state.user) {
+        state.user = session.user;
+        try {
+          state.profile = await ensureProfile(session.user);
+          await updateOnlineStatus(true);
+          if (!$('#sidebar')) { renderApp(); subscribeGlobal(); subscribeToCalls(); await loadChats(); startPresence(); ensureFriendshipsForAll(); }
+        } catch (e) { console.error(e); }
+      } else if (event === 'SIGNED_OUT') { state.user = null; state.profile = null; renderAuth(); }
+    });
+  } catch (e) {
+    console.error('Boot error:', e);
+    document.body.innerHTML = `<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0e1621; color: white; padding: 20px; text-align: center; direction: rtl; font-family: 'Cairo', sans-serif;"><div><div style="font-size: 48px; margin-bottom: 20px;">⚠️</div><h1 style="font-size: 20px; margin-bottom: 12px;">خطأ في الاتصال</h1><p style="opacity: 0.7; font-size: 14px; margin-bottom: 20px;">${esc(e.message)}</p><button onclick="location.reload()" style="padding: 10px 24px; border-radius: 10px; background: linear-gradient(135deg, #3478f6, #06b6d4); color: white; border: none; font-weight: 700; cursor: pointer; font-family: inherit;">إعادة المحاولة</button></div></div>`;
+  }
+}
+function startPresence() {
+  setInterval(() => { if (state.user && !document.hidden) updateOnlineStatus(true); }, 30000);
+  window.addEventListener('beforeunload', () => { if (state.user) updateOnlineStatus(false); });
+}
+
+// ============================================================
+//  AUTH SCREEN
+// ============================================================
+function renderAuth() {
+  $('#root').innerHTML = `
+    <div class="h-screen w-screen flex items-center justify-center relative overflow-hidden" style="background: linear-gradient(135deg, #0a0e27 0%, #1e3a8a 50%, #0e1621 100%);">
+      <div class="absolute w-96 h-96 rounded-full opacity-20 float-anim" style="background: radial-gradient(circle, #3478f6, transparent); top: -100px; right: -100px;"></div>
+      <div class="absolute w-80 h-80 rounded-full opacity-20 float-anim" style="background: radial-gradient(circle, #06b6d4, transparent); bottom: -80px; left: -80px; animation-delay: 1s;"></div>
+      <div class="relative w-full max-w-md mx-4 rounded-3xl p-8 shadow-2xl border border-white/10 anim-slide max-h-[92vh] overflow-y-auto" style="background: rgba(23,33,43,0.9); backdrop-filter: blur(24px);">
+        <div class="flex justify-center mb-6">
+          <div class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl relative" style="background: linear-gradient(135deg, #3478f6, #06b6d4);">
+            <div class="absolute inset-0 rounded-2xl pulse-mic" style="background: #3478f6;"></div>
+            <span class="relative text-white text-4xl">💬</span>
+          </div>
+        </div>
+        <h1 class="text-3xl font-black text-center text-white mb-1">SupaChat</h1>
+        <p class="text-center text-white/50 mb-8 text-sm">منصة تواصل عصري • آمن • سريع</p>
+        <div class="flex gap-2 mb-6 p-1 rounded-xl bg-white/5">
+          <button id="tab-login" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-white tab-active transition">دخول</button>
+          <button id="tab-signup" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-white/50 transition">حساب جديد</button>
+        </div>
+        <form id="auth-form" class="space-y-4">
+          <div id="signup-fields" class="space-y-4 hidden">
+            <input id="in-fullname" type="text" placeholder="الاسم الكامل" class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+            <input id="in-username" type="text" placeholder="اسم المستخدم (إنجليزي)" class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+          </div>
+          <input id="in-email" type="email" placeholder="البريد الإلكتروني" required class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+          <input id="in-password" type="password" placeholder="كلمة المرور" required minlength="6" class="w-full px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+          <p id="auth-error" class="text-red-400 text-sm text-center hidden p-2 rounded-lg bg-red-500/10"></p>
+          <p id="auth-info" class="text-blue-400 text-sm text-center hidden p-2 rounded-lg bg-blue-500/10"></p>
+          <button type="submit" id="auth-submit" class="gradient-btn w-full py-3.5 rounded-xl text-white font-bold"><span id="auth-submit-text">تسجيل الدخول</span></button>
+        </form>
+        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.0</p>
+      </div>
+    </div>`;
+  let mode = 'login';
+  const setTab = (m) => {
+    mode = m;
+    $('#tab-login').className = 'flex-1 py-2.5 rounded-lg text-sm font-bold text-white transition ' + (m === 'login' ? 'tab-active' : 'text-white/50');
+    $('#tab-signup').className = 'flex-1 py-2.5 rounded-lg text-sm font-bold text-white transition ' + (m === 'signup' ? 'tab-active' : 'text-white/50');
+    $('#signup-fields').classList.toggle('hidden', m !== 'signup');
+    $('#auth-submit-text').textContent = m === 'login' ? 'تسجيل الدخول' : 'إنشاء الحساب';
+    $('#auth-error').classList.add('hidden'); $('#auth-info').classList.add('hidden');
+  };
+  $('#tab-login').onclick = () => setTab('login');
+  $('#tab-signup').onclick = () => setTab('signup');
+  const showError = (msg) => { $('#auth-error').textContent = msg; $('#auth-error').classList.remove('hidden'); $('#auth-info').classList.add('hidden'); };
+  const showInfo = (msg) => { $('#auth-info').textContent = msg; $('#auth-info').classList.remove('hidden'); $('#auth-error').classList.add('hidden'); };
+  $('#auth-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const email = $('#in-email').value.trim();
+    const pass = $('#in-password').value;
+    const user = $('#in-username')?.value.trim();
+    const full = $('#in-fullname')?.value.trim();
+    $('#auth-error').classList.add('hidden'); $('#auth-info').classList.add('hidden');
+    $('#auth-submit').disabled = true; $('#auth-submit-text').textContent = 'جارٍ...';
+    try {
+      if (mode === 'signup') {
+        if (!user) throw new Error('اسم المستخدم مطلوب');
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(user)) throw new Error('اسم المستخدم: 3-20 حرف إنجليزي/رقم فقط');
+        if (pass.length < 6) throw new Error('كلمة المرور 6 أحرف على الأقل');
+        const result = await signUp(email, pass, user, full);
+        if (result.session) {
+          toast('أهلاً ' + (full || user), 'success');
+          renderApp(); subscribeGlobal(); subscribeToCalls(); await loadChats(); startPresence(); ensureFriendshipsForAll();
+        } else { showInfo('✓ تم إنشاء الحساب. تحقق من بريدك ثم سجّل الدخول.'); setTab('login'); }
+      } else {
+        if (!email || !pass) throw new Error('البريد وكلمة المرور مطلوبان');
+        await signIn(email, pass);
+        toast('أهلاً ' + state.profile?.full_name, 'success');
+        renderApp(); subscribeGlobal(); subscribeToCalls(); await loadChats(); startPresence(); ensureFriendshipsForAll();
+      }
+    } catch (err) {
+      let msg = err.message || 'حدث خطأ';
+      if (msg.includes('Invalid login')) msg = 'البريد أو كلمة المرور غير صحيحة';
+      if (msg.includes('Email not confirmed')) msg = 'يجب تفعيل بريدك أولاً';
+      if (msg.includes('already registered')) msg = 'هذا البريد مسجّل مسبقاً';
+      showError(msg);
+    } finally {
+      $('#auth-submit').disabled = false;
+      $('#auth-submit-text').textContent = mode === 'login' ? 'تسجيل الدخول' : 'إنشاء الحساب';
+    }
+  };
+}
+
+// ============================================================
+//  MAIN APP
+// ============================================================
+function renderApp() {
+  $('#root').innerHTML = `
+    <div class="app-shell">
+      <nav id="nav-rail" class="nav-rail"></nav>
+      <aside id="sidebar" class="sidebar surface border-l border-soft"></aside>
+      <main id="chat-window" class="chat-window hidden"></main>
+      <nav id="bottom-nav" class="bottom-nav"></nav>
+    </div>`;
+  renderNavRail(); renderSidebar(); renderChatEmpty(); renderBottomNav();
+}
+
+function renderNavRail() {
+  const rail = $('#nav-rail');
+  if (!rail) return;
+  const unreadTotal = state.chats.reduce((sum, c) => sum + (c.unread || 0), 0);
+  const items = [
+    { k: 'chats', label: 'الدردشات', icon: 'message-square', badge: unreadTotal },
+    { k: 'stories', label: 'الحالات', icon: 'camera', badge: 0 },
+    { k: 'friends', label: 'الأصدقاء', icon: 'users', badge: 0 },
+    { k: 'calls', label: 'المكالمات', icon: 'phone', badge: 0 },
+    { k: 'settings', label: 'الإعدادات', icon: 'settings', badge: 0 }
+  ];
+  rail.innerHTML = `
+    <div class="w-12 h-12 rounded-2xl gradient-btn flex items-center justify-center text-white font-bold mb-2 flex-shrink-0 shadow-lg" style="font-size: 22px;">💬</div>
+    ${items.map(it => `
+      <div class="nav-rail-item ${state.activeSection === it.k ? 'active' : ''}" data-sec="${it.k}">
+        ${icon(it.icon, 'w-6 h-6')}
+        ${it.badge > 0 ? `<span class="rail-badge">${it.badge > 99 ? '99+' : it.badge}</span>` : ''}
+        <span class="rail-label">${it.label}</span>
+      </div>`).join('')}
+    <div class="flex-1" style="min-height: 20px;"></div>
+    <div class="nav-rail-item" id="rail-theme">${icon(state.settings.theme === 'dark' ? 'sun' : 'moon', 'w-6 h-6')}<span class="rail-label">${state.settings.theme === 'dark' ? 'نهاري' : 'ليلي'}</span></div>
+    <div class="nav-rail-item" id="rail-profile">
+      <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold overflow-hidden" style="background: ${state.profile?.avatar_url ? 'transparent' : avGrad(state.user.id)};">
+        ${state.profile?.avatar_url ? `<img src="${esc(state.profile.avatar_url)}" class="w-full h-full object-cover" />` : esc(state.profile?.full_name?.[0] || '?')}
+      </div>
+      <span class="rail-label">ملفي</span>
+    </div>
+    <div class="nav-rail-item" id="rail-logout">${icon('log-out', 'w-6 h-6')}<span class="rail-label">خروج</span></div>
+  `;
+  rail.querySelectorAll('.nav-rail-item[data-sec]').forEach(el => {
+    el.onclick = () => { state.activeSection = el.dataset.sec; renderNavRail(); renderSidebarContent(); renderBottomNav(); };
+  });
+  $('#rail-theme').onclick = () => { toggleTheme(); renderNavRail(); renderSidebar(); };
+  $('#rail-profile').onclick = () => openFullProfile(state.user.id);
+  $('#rail-logout').onclick = doLogout;
+  refreshIcons();
+}
+
+function renderSidebar() {
+  const sbEl = $('#sidebar');
+  const p = state.profile;
+  const name = p?.full_name || 'أنا';
+  sbEl.innerHTML = `
+    <div class="p-3 flex items-center gap-3 border-b border-soft flex-shrink-0 glass">
+      <button id="btn-profile" class="relative w-11 h-11 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white font-bold shadow-md" style="background: ${p?.avatar_url ? 'transparent' : avGrad(state.user.id)};">
+        ${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" class="w-full h-full object-cover" />` : esc(name[0])}
+        <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 online-pulse"></span>
+      </button>
+      <div class="flex-1 min-w-0">
+        <p class="text-primary font-bold text-sm truncate">${esc(name)}</p>
+        <p class="text-emerald-500 text-xs">● متصل</p>
+      </div>
+      <button id="btn-theme" class="p-2.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-muted transition">${icon(state.settings.theme === 'dark' ? 'sun' : 'moon', 'w-5 h-5')}</button>
+      <button id="btn-new-chat" class="p-2.5 rounded-xl gradient-btn text-white shadow-lg">${icon('plus', 'w-5 h-5')}</button>
+    </div>
+    <div id="sidebar-content" class="flex-1 flex flex-col overflow-hidden"></div>`;
+  refreshIcons();
+  $('#btn-theme').onclick = () => { toggleTheme(); renderSidebar(); renderNavRail(); };
+  $('#btn-new-chat').onclick = openNewChatModal;
+  $('#btn-profile').onclick = () => openFullProfile(state.user.id);
+  renderSidebarContent();
+}
+
+function renderSidebarContent() {
+  const c = $('#sidebar-content');
+  if (!c) return;
+  const s = state.activeSection;
+  if (s === 'chats') renderChatsSection(c);
+  else if (s === 'stories') renderStoriesSection(c);
+  else if (s === 'friends') renderFriendsSection(c);
+  else if (s === 'calls') renderCallsSection(c);
+  else if (s === 'settings') renderSettingsSection(c);
+  refreshIcons();
+}
+
+// ============================================================
+//  CHATS
+// ============================================================
+function renderChatsSection(container) {
+  container.innerHTML = `
+    <div class="p-3 flex-shrink-0">
+      <div class="relative">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted">${icon('search', 'w-4 h-4')}</span>
+        <input id="search-input" type="text" placeholder="بحث..." class="w-full pr-10 pl-4 py-2.5 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+      </div>
+    </div>
+    <div class="flex gap-1 px-3 pb-2 flex-shrink-0 overflow-x-auto">
+      ${[{ k: 'all', label: 'الكل', icon: 'inbox' }, { k: 'private', label: 'دردشات', icon: 'user' }, { k: 'group', label: 'مجموعات', icon: 'users' }, { k: 'channel', label: 'قنوات', icon: 'radio' }, { k: 'unread', label: 'غير مقروء', icon: 'mail' }].map(t => `
+        <button data-tab="${t.k}" class="ctab flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition ${state.activeTab === t.k ? 'tab-active' : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'}">
+          ${icon(t.icon, 'w-3.5 h-3.5')} ${t.label}
+        </button>`).join('')}
+    </div>
+    <div id="chat-list" class="flex-1 overflow-y-auto"></div>`;
+  $('#search-input').value = state.searchQuery;
+  $('#search-input').oninput = (e) => { state.searchQuery = e.target.value.toLowerCase(); renderChatList(); };
+  $$('.ctab').forEach(b => b.onclick = () => { state.activeTab = b.dataset.tab; renderSidebarContent(); });
+  renderChatList();
+}
+
+function renderChatList() {
+  const list = $('#chat-list');
+  if (!list) return;
+  const q = state.searchQuery;
+  let filtered = state.chats.filter(c => {
+    const o = getOther(c);
+    const name = c.type === 'private' ? (o?.full_name || '') : (c.name || '');
+    return name.toLowerCase().includes(q);
+  });
+  if (state.activeTab === 'unread') filtered = filtered.filter(c => c.unread > 0);
+  else if (state.activeTab !== 'all') filtered = filtered.filter(c => c.type === state.activeTab);
+  if (!filtered.length) {
+    list.innerHTML = `<div class="flex flex-col items-center justify-center py-16 px-6 text-center"><div class="text-5xl mb-3 opacity-20">💬</div><p class="text-muted text-sm">لا توجد محادثات بعد</p><p class="text-muted text-xs mt-1 opacity-70">اضغط + للبدء</p></div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(chatItemHTML).join('');
+  filtered.forEach(c => {
+    const el = list.querySelector(`[data-id="${c.id}"]`);
+    if (el) {
+      el.onclick = () => openChat(c.id);
+      const avatar = el.querySelector('[data-avatar]');
+      if (avatar) avatar.onclick = (e) => { e.stopPropagation(); const o = getOther(c); if (c.type === 'private' && o) openFullProfile(o.id); };
+    }
+  });
+  refreshIcons();
+}
+
+function getOther(c) { if (c.type !== 'private') return null; return c.members?.find(m => m.id !== state.user?.id) || null; }
+
+function chatItemHTML(chat) {
+  const isPrivate = chat.type === 'private';
+  const o = getOther(chat);
+  const name = isPrivate ? (o?.full_name || 'مستخدم') : (chat.name || 'بدون اسم');
+  const avatar = isPrivate ? o?.avatar_url : chat.avatar_url;
+  const isActive = state.activeChat?.id === chat.id;
+  const isOnline = isPrivate && o?.is_online;
+  const badge = chat.type === 'channel' ? '📢' : chat.type === 'group' ? '👥' : '';
+  const unread = chat.unread || 0;
+  const lastMsg = chat.last_message;
+  const senderName = lastMsg && chat.type !== 'private' && lastMsg.sender_id !== state.user.id ? chat.members?.find(m => m.id === lastMsg.sender_id)?.full_name?.split(' ')[0] : null;
+  let previewText = 'اضغط للفتح';
+  if (lastMsg) {
+    if (lastMsg.is_deleted) previewText = '🚫 رسالة محذوفة';
+    else if (lastMsg.type === 'image') previewText = '🖼️ صورة';
+    else if (lastMsg.type === 'video') previewText = '🎥 فيديو';
+    else if (lastMsg.type === 'voice') previewText = '🎙️ رسالة صوتية';
+    else if (lastMsg.type === 'audio') previewText = '🎵 صوت';
+    else if (lastMsg.type === 'file') previewText = '📎 ملف';
+    else previewText = lastMsg.content || '';
+  }
+  return `
+    <div data-id="${chat.id}" class="chat-item w-full p-3 flex items-center gap-3 ${isActive ? 'active' : ''}">
+      <div class="relative flex-shrink-0 cursor-pointer" data-avatar>
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold overflow-hidden shadow-sm" style="background: ${avatar ? 'transparent' : avGrad(isPrivate ? (o?.id || '') : chat.id)};">
+          ${avatar ? `<img src="${esc(avatar)}" class="w-full h-full object-cover" loading="lazy" />` : esc(name[0])}
+        </div>
+        ${isOnline ? `<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900"></span>` : ''}
+      </div>
+      <div class="flex-1 text-right min-w-0">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-primary font-bold text-sm truncate">${badge} ${esc(name)}</p>
+          ${lastMsg ? `<span class="text-muted text-[10px] flex-shrink-0">${fmtDay(lastMsg.created_at)}</span>` : ''}
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-0.5">
+          <p class="text-muted text-xs truncate flex-1">${senderName ? `<span class="font-bold">${esc(senderName)}: </span>` : ''}${esc(previewText.slice(0, 45))}</p>
+          ${unread > 0 ? `<span class="bg-blue-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">${unread > 99 ? '99+' : unread}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+//  STORIES
+// ============================================================
+async function renderStoriesSection(container) {
+  container.innerHTML = `
+    <div class="p-3 border-b border-soft flex items-center justify-between flex-shrink-0">
+      <h3 class="text-primary font-bold text-lg">📸 الحالات</h3>
+      <button id="btn-add-status" class="p-2 rounded-lg gradient-btn text-white">${icon('plus', 'w-4 h-4')}</button>
+    </div>
+    <div id="stories-body" class="flex-1 overflow-y-auto p-3">
+      <div class="flex items-center justify-center py-8"><div class="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>
+    </div>`;
+  refreshIcons();
+  $('#btn-add-status').onclick = openAddStatusModal;
+  try {
+    const [statuses, viewsMap] = await Promise.all([loadAllActiveStatuses(), loadStatusViews()]);
+    const byUser = {};
+    statuses.forEach(st => {
+      const uid = st.user_id;
+      if (!byUser[uid]) byUser[uid] = { user: st.profiles, statuses: [] };
+      byUser[uid].statuses.push(st);
+    });
+    Object.values(byUser).forEach(item => item.statuses.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+    const myStatus = byUser[state.user.id];
+    let others = Object.values(byUser).filter(x => x.user?.id !== state.user.id);
+    others.sort((a, b) => {
+      const aSeen = a.statuses.every(s => viewsMap[s.id]?.has(state.user.id));
+      const bSeen = b.statuses.every(s => viewsMap[s.id]?.has(state.user.id));
+      if (aSeen === bSeen) return 0;
+      return aSeen ? 1 : -1;
+    });
+    container.querySelector('#stories-body').innerHTML = `
+      <button id="my-status-btn" class="w-full p-3 rounded-xl flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition text-right border border-soft">
+        <div class="relative">
+          ${myStatus ? `<div class="story-ring"><div class="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold overflow-hidden border-2 border-white dark:border-slate-900" style="background: ${state.profile?.avatar_url ? 'transparent' : avGrad(state.user.id)};">${state.profile?.avatar_url ? `<img src="${esc(state.profile.avatar_url)}" class="w-full h-full object-cover" />` : esc(state.profile?.full_name?.[0] || '?')}</div></div>`
+            : `<div class="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold" style="background: ${state.profile?.avatar_url ? 'transparent' : avGrad(state.user.id)};">${state.profile?.avatar_url ? `<img src="${esc(state.profile.avatar_url)}" class="w-full h-full object-cover rounded-full" />` : esc(state.profile?.full_name?.[0] || '?')}</div>`}
+          <span class="absolute bottom-0 right-0 w-5 h-5 rounded-full gradient-btn flex items-center justify-center border-2 border-white dark:border-slate-900">${icon('plus', 'w-3 h-3 text-white')}</span>
+        </div>
+        <div class="flex-1"><p class="text-primary font-bold text-sm">حالتي</p><p class="text-muted text-xs">${myStatus ? `${myStatus.statuses.length} تحديث` : 'أضف تحديثاً'}</p></div>
+      </button>
+      ${others.length ? `<p class="text-muted text-xs font-bold pt-4 pb-1">التحديثات الأخيرة</p>${others.map(item => {
+        const allSeen = item.statuses.every(s => viewsMap[s.id]?.has(state.user.id));
+        return `<button data-story-uid="${item.user.id}" class="story-item w-full p-3 rounded-xl flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition text-right">
+          <div class="${allSeen ? 'story-ring-seen' : 'story-ring'}"><div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold overflow-hidden border-2 border-white dark:border-slate-900" style="background: ${item.user.avatar_url ? 'transparent' : avGrad(item.user.id)};">${item.user.avatar_url ? `<img src="${esc(item.user.avatar_url)}" class="w-full h-full object-cover" />` : esc(item.user.full_name[0])}</div></div>
+          <div class="flex-1 min-w-0"><p class="text-primary font-bold text-sm truncate">${esc(item.user.full_name)}</p><p class="text-muted text-xs">${item.statuses.length} تحديث</p></div>
+        </button>`;
+      }).join('')}` : `<div class="text-center py-6"><p class="text-muted text-xs">لا توجد تحديثات</p></div>`}
+    `;
+    refreshIcons();
+    $('#my-status-btn').onclick = () => { if (myStatus) openStoryViewer(state.user.id); else openAddStatusModal(); };
+    $$('.story-item').forEach(b => b.onclick = () => openStoryViewer(b.dataset.storyUid));
+  } catch (e) { console.error(e); }
+}
+
+// ============================================================
+//  FRIENDS
+// ============================================================
+async function renderFriendsSection(container) {
+  container.innerHTML = `
+    <div class="p-3 border-b border-soft flex-shrink-0">
+      <h3 class="text-primary font-bold text-lg mb-3">👥 الأصدقاء</h3>
+      <div class="relative">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted">${icon('search', 'w-4 h-4')}</span>
+        <input id="friend-search" type="text" placeholder="ابحث بالاسم أو @يوزر..." class="w-full pr-10 pl-4 py-2.5 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+      </div>
+    </div>
+    <div id="friends-list" class="flex-1 overflow-y-auto">
+      <div class="flex items-center justify-center py-8"><div class="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>
+    </div>`;
+  refreshIcons();
+  try {
+    const [friends, allUsers] = await Promise.all([loadFriends(), searchUsersAll('')]);
+    // إذا لا يوجد أصدقاء، استخدم كل المستخدمين (بعد ensureFriendships)
+    const users = friends.length ? friends : allUsers;
+    renderFriendsList(users);
+    const searchInput = $('#friend-search');
+    const doSearch = debounce(async (q) => {
+      const list = $('#friends-list');
+      list.innerHTML = `<div class="flex items-center justify-center py-8"><div class="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>`;
+      const base = friends.length ? friends : await searchUsersAll('');
+      let results = base;
+      if (q && q.trim()) {
+        let term = q.trim();
+        if (term.startsWith('@')) term = term.substring(1);
+        term = term.toLowerCase();
+        results = base.filter(u => (u.full_name || '').toLowerCase().includes(term) || (u.username || '').toLowerCase().includes(term));
+      }
+      renderFriendsList(results);
+    }, 250);
+    searchInput.oninput = () => doSearch(searchInput.value);
+  } catch (e) { console.error('renderFriendsSection:', e); $('#friends-list').innerHTML = `<p class="text-center text-red-500 text-sm py-8">فشل التحميل</p>`; }
+}
+
+function renderFriendsList(users) {
+  const list = $('#friends-list');
+  if (!list) return;
+  if (!users.length) {
+    list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">👥</div><p class="text-muted text-sm">لا أصدقاء بعد</p><p class="text-muted text-xs mt-1">سيظهرون تلقائياً مع تسجيل الآخرين</p></div>`;
+    return;
+  }
+  const sorted = [...users].sort((a, b) => {
+    if (a.is_online !== b.is_online) return b.is_online ? 1 : -1;
+    return (a.full_name || '').localeCompare(b.full_name || '', 'ar');
+  });
+  list.innerHTML = sorted.map(u => `
+    <button data-uid="${u.id}" class="friend-item w-full p-3 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition text-right">
+      <div class="relative w-12 h-12 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0" style="background: ${u.avatar_url ? 'transparent' : avGrad(u.id)};">
+        ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" class="w-full h-full object-cover" loading="lazy" />` : esc((u.full_name || '?')[0])}
+        ${u.is_online ? `<span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900"></span>` : ''}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-primary font-bold text-sm truncate">${esc(u.full_name)}</p>
+        <p class="text-muted text-xs truncate">@${esc(u.username)} ${u.is_online ? '• 🟢 متصل' : '• ' + fmtLastSeen(u.last_seen)}</p>
+      </div>
+      <div class="flex gap-1">
+        <button class="action-btn p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20" data-action="message" data-uid="${u.id}" title="رسالة">
+          ${icon('message-circle', 'w-4 h-4')}
+        </button>
+        <button class="action-btn p-2 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20" data-action="call" data-uid="${u.id}" title="اتصال">
+          ${icon('phone', 'w-4 h-4')}
+        </button>
+        <button class="action-btn p-2 rounded-lg bg-purple-500/10 text-purple-500 hover:bg-purple-500/20" data-action="video" data-uid="${u.id}" title="فيديو">
+          ${icon('video', 'w-4 h-4')}
+        </button>
+      </div>
+    </button>`).join('');
+  list.querySelectorAll('.friend-item').forEach(el => {
+    const uid = el.dataset.uid;
+    el.onclick = (e) => {
+      if (e.target.closest('.action-btn')) return;
+      openFullProfile(uid);
+    };
+  });
+  list.querySelectorAll('.action-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const uid = btn.dataset.uid;
+      const action = btn.dataset.action;
+      if (action === 'message') await startPrivateChat(uid);
+      else if (action === 'call') initiateCall(uid, 'audio');
+      else if (action === 'video') initiateCall(uid, 'video');
+    };
+  });
+  refreshIcons();
+}
+
+// ============================================================
+//  FULL PROFILE
+// ============================================================
+async function openFullProfile(userId) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 z-[150] surface overflow-y-auto anim-slide';
+  modal.innerHTML = `<div class="flex items-center justify-center py-12"><div class="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>`;
+  document.body.appendChild(modal);
+  try {
+    const profile = await getProfileById(userId);
+    if (!profile) { modal.remove(); return toast('لم يتم العثور على المستخدم', 'error'); }
+    const isMe = userId === state.user.id;
+    const now = new Date().toISOString();
+    const { data: statuses } = await sb.from('statuses').select('*').eq('user_id', userId).gt('expires_at', now).order('created_at', { ascending: false });
+    let mutualChats = [];
+    if (!isMe) {
+      const { data: myMemberships } = await sb.from('chat_members').select('chat_id').eq('user_id', state.user.id);
+      const myChatIds = (myMemberships || []).map(m => m.chat_id);
+      if (myChatIds.length) {
+        const { data: theirMemberships } = await sb.from('chat_members').select(`chat_id, chats:chat_id (id, type, name, avatar_url)`).eq('user_id', userId).in('chat_id', myChatIds);
+        mutualChats = (theirMemberships || []).map(m => m.chats).filter(c => c && c.type !== 'private');
+      }
+      await ensureFriendship(userId);
+    }
+    const isOnline = profile.is_online;
+    modal.innerHTML = `
+      <div class="sticky top-0 z-10 glass border-b border-soft">
+        <div class="flex items-center gap-3 p-3 max-w-2xl mx-auto">
+          <button id="prof-back" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted">${icon('arrow-right', 'w-5 h-5')}</button>
+          <h2 class="text-primary font-bold text-lg flex-1">الملف الشخصي</h2>
+        </div>
+      </div>
+      <div class="max-w-2xl mx-auto pb-8">
+        <div class="profile-hero" style="background: ${profile.avatar_url ? `linear-gradient(135deg, rgba(52,120,246,0.7), rgba(6,182,212,0.7)), url('${esc(profile.avatar_url)}') center/cover` : 'linear-gradient(135deg, #3478f6 0%, #06b6d4 100%)'};">
+          <div class="flex items-end gap-4 w-full">
+            <div class="profile-hero-avatar">${profile.avatar_url ? `<img src="${esc(profile.avatar_url)}" class="w-full h-full object-cover" />` : esc(profile.full_name[0])}</div>
+            <div class="flex-1 min-w-0 pb-2">
+              <h1 class="text-2xl font-bold truncate">${esc(profile.full_name)}</h1>
+              <p class="text-white/80 text-sm">@${esc(profile.username)}</p>
+              <p class="text-xs mt-1 ${isOnline ? 'text-emerald-300' : 'text-white/60'}">${isOnline ? '● متصل الآن' : 'آخر ظهور ' + fmtLastSeen(profile.last_seen)}</p>
+            </div>
+          </div>
+        </div>
+        ${!isMe ? `
+          <div class="p-4 grid grid-cols-3 gap-2 border-b border-soft">
+            <button id="prof-message" class="p-3 rounded-xl surface-2 border border-soft text-primary hover:bg-blue-500/10 transition flex flex-col items-center gap-1">${icon('message-circle', 'w-5 h-5 text-blue-500')}<span class="text-xs font-bold">رسالة</span></button>
+            <button id="prof-call" class="p-3 rounded-xl surface-2 border border-soft text-primary hover:bg-emerald-500/10 transition flex flex-col items-center gap-1">${icon('phone', 'w-5 h-5 text-emerald-500')}<span class="text-xs font-bold">اتصال</span></button>
+            <button id="prof-video" class="p-3 rounded-xl surface-2 border border-soft text-primary hover:bg-purple-500/10 transition flex flex-col items-center gap-1">${icon('video', 'w-5 h-5 text-purple-500')}<span class="text-xs font-bold">فيديو</span></button>
+          </div>` : `
+          <div class="p-4 border-b border-soft"><button id="prof-edit" class="w-full p-3 rounded-xl gradient-btn text-white font-bold">${icon('pencil', 'w-4 h-4 inline')} تعديل الملف الشخصي</button></div>`}
+        <div class="p-4 space-y-4 border-b border-soft">
+          ${profile.bio ? `<div><p class="text-muted text-xs font-bold mb-1">نبذة</p><p class="text-primary text-sm whitespace-pre-wrap">${esc(profile.bio)}</p></div>` : ''}
+          ${profile.birthday ? `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500">${icon('cake', 'w-5 h-5')}</div><div><p class="text-muted text-xs">تاريخ الميلاد</p><p class="text-primary text-sm font-medium">${fmtBirthday(profile.birthday)} ${calcAge(profile.birthday) ? '• ' + calcAge(profile.birthday) + ' سنة' : ''}</p></div></div>` : ''}
+          ${profile.phone ? `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">${icon('phone', 'w-5 h-5')}</div><div><p class="text-muted text-xs">الهاتف</p><p class="text-primary text-sm font-medium" dir="ltr">${esc(profile.phone)}</p></div></div>` : ''}
+          ${profile.location ? `<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">${icon('map-pin', 'w-5 h-5')}</div><div><p class="text-muted text-xs">الموقع</p><p class="text-primary text-sm font-medium">${esc(profile.location)}</p></div></div>` : ''}
+        </div>
+        ${statuses?.length ? `<div class="p-4 border-b border-soft"><div class="flex items-center gap-2 mb-3">${icon('camera', 'w-5 h-5 text-pink-500')}<h3 class="text-primary font-bold">الحالات (${statuses.length})</h3></div><div class="flex gap-3 overflow-x-auto pb-2">
+          ${statuses.map(st => `<button data-story-open="${st.id}" class="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden border-2 border-pink-500/30 hover:border-pink-500 transition" style="background: ${st.background_color || '#3478f6'};">
+            ${st.type === 'image' && st.media_url ? `<img src="${esc(st.media_url)}" class="w-full h-full object-cover" />` : st.type === 'video' && st.media_url ? `<video src="${esc(st.media_url)}" class="w-full h-full object-cover"></video>` : `<div class="w-full h-full flex items-center justify-center p-2 text-white text-xs text-center">${esc((st.content || '').slice(0, 40))}</div>`}
+          </button>`).join('')}
+        </div></div>` : ''}
+        ${mutualChats.length ? `<div class="p-4 border-b border-soft"><div class="flex items-center gap-2 mb-3">${icon('users', 'w-5 h-5 text-blue-500')}<h3 class="text-primary font-bold">${isMe ? 'المجموعات' : 'المجموعات المشتركة'} (${mutualChats.length})</h3></div><div class="space-y-1">
+          ${mutualChats.slice(0, 10).map(c => `<div class="flex items-center gap-3 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5"><div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden" style="background: ${c.avatar_url ? 'transparent' : avGrad(c.id)};">${c.avatar_url ? `<img src="${esc(c.avatar_url)}" class="w-full h-full object-cover" />` : esc((c.name || '?')[0])}</div><div class="flex-1 min-w-0"><p class="text-primary text-sm font-bold truncate">${esc(c.name || '')}</p><p class="text-muted text-xs">${c.type === 'channel' ? 'قناة' : 'مجموعة'}</p></div></div>`).join('')}
+        </div></div>` : ''}
+        <div class="p-4 text-center"><p class="text-muted text-xs">عضو منذ ${fmtBirthday(profile.created_at)}</p></div>
+      </div>`;
+    refreshIcons();
+    $('#prof-back').onclick = () => modal.remove();
+    if (!isMe) {
+      $('#prof-message').onclick = async () => { modal.remove(); await startPrivateChat(userId); };
+      $('#prof-call').onclick = () => { modal.remove(); initiateCall(userId, 'audio'); };
+      $('#prof-video').onclick = () => { modal.remove(); initiateCall(userId, 'video'); };
+    } else {
+      $('#prof-edit').onclick = () => { modal.remove(); openProfileModal(); };
+    }
+    modal.querySelectorAll('[data-story-open]').forEach(b => b.onclick = () => { modal.remove(); openStoryViewer(userId); });
+  } catch (e) {
+    console.error('openFullProfile:', e);
+    modal.remove();
+    toast('فشل تحميل الملف: ' + e.message, 'error');
+  }
+}
+
+// ============================================================
+//  SETTINGS
+// ============================================================
+function renderSettingsSection(container) {
+  const s = state.settings;
+  const p = state.profile;
+  const name = p?.full_name || 'أنا';
+  container.innerHTML = `
+    <div class="flex-1 overflow-y-auto">
+      <div class="p-4 flex flex-col items-center border-b border-soft">
+        <button id="edit-profile-btn" class="w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl font-bold mb-3 overflow-hidden shadow-lg" style="background: ${p?.avatar_url ? 'transparent' : avGrad(state.user.id)};">
+          ${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" class="w-full h-full object-cover" />` : esc(name[0])}
+        </button>
+        <p class="text-primary font-bold text-lg">${esc(name)}</p>
+        <p class="text-muted text-sm">@${esc(p?.username || '')}</p>
+        ${p?.bio ? `<p class="text-muted text-xs mt-1 text-center px-4">${esc(p.bio)}</p>` : ''}
+        <button id="view-my-profile" class="mt-3 px-4 py-1.5 rounded-full text-xs font-bold gradient-btn text-white">عرض ملفي الكامل</button>
+      </div>
+      <div class="py-2">
+        <p class="text-muted text-xs font-bold px-4 py-2">المظهر</p>
+        <div class="setting-row px-4 py-3 flex items-center gap-3" id="row-theme">
+          <div class="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">${icon(s.theme === 'dark' ? 'moon' : 'sun', 'w-4 h-4')}</div>
+          <span class="text-primary text-sm font-medium flex-1">الوضع الليلي</span>
+          <div class="switch ${s.theme === 'dark' ? 'on' : ''}"></div>
+        </div>
+        <div class="setting-row px-4 py-3 flex items-center gap-3" id="row-enter">
+          <div class="w-9 h-9 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-500">${icon('keyboard', 'w-4 h-4')}</div>
+          <span class="text-primary text-sm font-medium flex-1">Enter للإرسال</span>
+          <div class="switch ${s.enterToSend ? 'on' : ''}"></div>
+        </div>
+      </div>
+      <div class="p-4">
+        <button id="btn-logout" class="w-full py-3 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm hover:bg-red-500/20 flex items-center justify-center gap-2">${icon('log-out', 'w-4 h-4')} تسجيل الخروج</button>
+      </div>
+      <p class="text-center text-muted text-xs pb-6">SupaChat v4.0</p>
+    </div>`;
+  refreshIcons();
+  $('#row-theme').onclick = () => { toggleTheme(); toast(state.settings.theme === 'dark' ? '🌙 ليلي' : '☀️ نهاري', 'info'); renderSidebarContent(); renderNavRail(); renderSidebar(); };
+  $('#row-enter').onclick = () => { state.settings.enterToSend = !state.settings.enterToSend; toast(state.settings.enterToSend ? 'Enter للإرسال' : 'Enter لسطر جديد', 'info'); renderSidebarContent(); };
+  $('#edit-profile-btn').onclick = openProfileModal;
+  $('#view-my-profile').onclick = () => openFullProfile(state.user.id);
+  $('#btn-logout').onclick = doLogout;
+}
+
+// ============================================================
+//  BOTTOM NAV
+// ============================================================
+function renderBottomNav() {
+  const nav = $('#bottom-nav');
+  if (!nav) return;
+  const unreadTotal = state.chats.reduce((sum, c) => sum + (c.unread || 0), 0);
+  const items = [
+    { k: 'chats', label: 'الدردشات', icon: 'message-square', badge: unreadTotal },
+    { k: 'stories', label: 'الحالات', icon: 'camera', badge: 0 },
+    { k: 'friends', label: 'الأصدقاء', icon: 'users', badge: 0 },
+    { k: 'calls', label: 'المكالمات', icon: 'phone', badge: 0 },
+    { k: 'settings', label: 'الإعدادات', icon: 'settings', badge: 0 }
+  ];
+  nav.innerHTML = items.map(it => `
+    <div class="bottom-nav-item ${state.activeSection === it.k ? 'active' : ''}" data-sec="${it.k}">
+      <span class="relative">${icon(it.icon, 'w-6 h-6')}${it.badge > 0 ? `<span class="badge">${it.badge > 99 ? '99+' : it.badge}</span>` : ''}</span>
+      <span>${it.label}</span>
+    </div>`).join('');
+  nav.querySelectorAll('.bottom-nav-item').forEach(el => el.onclick = () => {
+    if (window.innerWidth < 768 && state.activeChat) {
+      $('#chat-window')?.classList.add('hidden'); $('#chat-window')?.classList.remove('flex');
+      $('#sidebar')?.classList.remove('hidden-mobile'); state.activeChat = null;
+    }
+    state.activeSection = el.dataset.sec;
+    renderBottomNav(); renderSidebarContent(); renderNavRail();
+  });
+  refreshIcons();
+}
+
+// ============================================================
+//  CHAT WINDOW
+// ============================================================
+function renderChatEmpty() {
+  const cw = $('#chat-window');
+  cw.className = 'chat-window chat-bg hidden';
+  cw.innerHTML = `<div class="flex-1 flex items-center justify-center"><div class="text-center anim-fade"><div class="w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center float-anim" style="background: linear-gradient(135deg, rgba(52,120,246,0.2), rgba(6,182,212,0.2));"><span class="text-6xl">💬</span></div><h2 class="text-2xl font-bold text-primary mb-2">مرحباً بك</h2><p class="text-muted text-sm">اختر محادثة للبدء</p></div></div>`;
+}
+
+async function openChat(chatId) {
+  const chat = state.chats.find(c => c.id === chatId);
+  if (!chat) return;
+  state.activeChat = chat;
+  if (window.innerWidth < 768) {
+    $('#sidebar')?.classList.add('hidden-mobile');
+    $('#chat-window')?.classList.remove('hidden');
+    $('#chat-window')?.classList.add('flex');
+  } else {
+    $('#chat-window')?.classList.remove('hidden');
+  }
+  renderChatWindow();
+  await loadMessages(chatId);
+  renderMessages();
+  subscribeToChat(chatId);
+  renderChatList();
+}
+
+function renderChatWindow() {
+  const chat = state.activeChat;
+  if (!chat) return;
+  const isPrivate = chat.type === 'private';
+  const o = getOther(chat);
+  const title = isPrivate ? (o?.full_name || 'مستخدم') : (chat.name || 'بدون اسم');
+  const avatar = isPrivate ? o?.avatar_url : chat.avatar_url;
+  const avatarId = isPrivate ? (o?.id || '') : chat.id;
+  const isOnline = isPrivate && o?.is_online;
+  let subtitle = '';
+  if (chat.type === 'channel') subtitle = `📢 قناة${chat.members?.length ? ' • ' + chat.members.length + ' مشترك' : ''}`;
+  else if (chat.type === 'group') subtitle = `👥 ${chat.members?.length || 0} أعضاء`;
+  else if (isOnline) subtitle = '<span class="text-emerald-500">● متصل الآن</span>';
+  else if (o?.last_seen) subtitle = `آخر ظهور ${fmtLastSeen(o.last_seen)}`;
+  else subtitle = 'غير متصل';
+  const cw = $('#chat-window');
+  cw.className = 'chat-window chat-bg';
+  cw.innerHTML = `
+    <header class="h-14 px-3 flex items-center gap-2 border-b border-soft glass flex-shrink-0">
+      <button id="btn-back" class="md:hidden p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted">${icon('arrow-right', 'w-5 h-5')}</button>
+      <button id="chat-avatar-btn" class="relative flex-shrink-0">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold overflow-hidden" style="background: ${avatar ? 'transparent' : avGrad(avatarId)};">
+          ${avatar ? `<img src="${esc(avatar)}" class="w-full h-full object-cover" />` : esc(title[0])}
+        </div>
+        ${isOnline ? `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900"></span>` : ''}
+      </button>
+      <button id="chat-info-btn" class="flex-1 min-w-0 text-right">
+        <p class="text-primary font-bold text-sm truncate">${esc(title)}</p>
+        <p class="text-[11px] text-muted truncate">${subtitle}</p>
+      </button>
+      <button id="btn-call" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted">${icon('phone', 'w-4 h-4')}</button>
+      <button id="btn-video" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted">${icon('video', 'w-4 h-4')}</button>
+      <button id="chat-menu-btn" class="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-muted">${icon('more-vertical', 'w-4 h-4')}</button>
+    </header>
+    <div id="messages" class="flex-1 overflow-y-auto px-3 py-3 space-y-1"></div>
+    <div class="p-2 border-t border-soft glass flex-shrink-0">
+      <div id="emoji-wrap" class="relative"></div>
+      <div id="reply-preview" class="hidden mb-2 p-2 rounded-lg bg-blue-500/10 border-r-2 border-blue-500 text-sm"></div>
+      <div class="flex items-end gap-1.5">
+        <button id="btn-emoji" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-muted flex-shrink-0">${icon('smile', 'w-5 h-5')}</button>
+        <button id="btn-attach" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-muted flex-shrink-0">${icon('paperclip', 'w-5 h-5')}</button>
+        <input id="file-input" type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.zip" />
+        <textarea id="msg-input" rows="1" placeholder="اكتب رسالة..." class="flex-1 px-3 py-2.5 rounded-2xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30 max-h-32"></textarea>
+        <button id="btn-mic" class="p-2 rounded-full surface-2 border border-soft text-muted flex-shrink-0 hover:bg-red-500/10 hover:text-red-500 transition">${icon('mic', 'w-5 h-5')}</button>
+        <button id="btn-send" class="p-2.5 rounded-full gradient-btn text-white shadow-lg flex-shrink-0" disabled>${icon('send', 'w-5 h-5')}</button>
+      </div>
+    </div>`;
+  refreshIcons();
+  renderMessages();
+  $('#btn-back').onclick = () => { $('#sidebar')?.classList.remove('hidden-mobile'); $('#chat-window')?.classList.add('hidden'); $('#chat-window')?.classList.remove('flex'); };
+  $('#chat-avatar-btn').onclick = () => { if (isPrivate && o) openFullProfile(o.id); else openChatInfo(); };
+  $('#chat-info-btn').onclick = openChatInfo;
+  $('#chat-menu-btn').onclick = openChatMenu;
+  $('#btn-call').onclick = () => startCall('audio');
+  $('#btn-video').onclick = () => startCall('video');
+  const input = $('#msg-input');
+  const sendBtn = $('#btn-send');
+  input.oninput = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 128) + 'px'; sendBtn.disabled = !input.value.trim(); };
+  input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && state.settings.enterToSend) { e.preventDefault(); doSend(); } };
+  sendBtn.onclick = doSend;
+  $('#btn-emoji').onclick = toggleEmoji;
+  $('#btn-attach').onclick = () => $('#file-input').click();
+  $('#btn-mic').onclick = startVoiceRecording;
+  $('#file-input').onchange = (e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ''; };
+}
+
+async function doSend() {
+  const input = $('#msg-input');
+  const content = input.value.trim();
+  if (!content || !state.activeChat) return;
+  input.value = ''; input.style.height = 'auto';
+  $('#btn-send').disabled = true;
+  try {
+    await sendMessage(state.activeChat.id, content, 'text', null, { replyTo: state.replyTo });
+    state.replyTo = null; clearReplyPreview();
+    await loadMessages(state.activeChat.id);
+    renderMessages(); await loadChats();
+  } catch (e) { toast(e.message || 'فشل الإرسال', 'error'); }
+}
+
+function clearReplyPreview() { const rp = $('#reply-preview'); if (rp) { rp.classList.add('hidden'); rp.innerHTML = ''; } }
+
+async function handleFileUpload(file) {
+  const MAX_MB = 100;
+  if (file.size / (1024 * 1024) > MAX_MB) return toast(`حجم كبير (حد ${MAX_MB}MB)`, 'error');
+  const isVideo = file.type.startsWith('video/');
+  let duration = null;
+  if (isVideo) {
+    try { duration = await getVideoDuration(file); if (duration > 65) return toast(`الفيديو طويل (${Math.round(duration)}ث)`, 'error'); } catch (e) {}
+  }
+  showUploadProgress(isVideo ? 'رفع الفيديو...' : 'رفع...');
+  updateUploadProgress(20);
+  try {
+    const url = await uploadFile(file, 'chat-media');
+    updateUploadProgress(90);
+    let type = 'file';
+    if (file.type.startsWith('image/')) type = 'image';
+    else if (file.type.startsWith('video/')) type = 'video';
+    else if (file.type.startsWith('audio/')) type = 'audio';
+    await sendMessage(state.activeChat.id, file.name, type, url, { replyTo: state.replyTo, duration: duration ? Math.round(duration) : null });
+    updateUploadProgress(100);
+    state.replyTo = null; clearReplyPreview();
+    await loadMessages(state.activeChat.id);
+    renderMessages(); await loadChats();
+    toast('تم ✓', 'success');
+  } catch (e) { console.error(e); toast(e.message, 'error'); }
+  finally { setTimeout(hideUploadProgress, 500); }
+}
+
+function getVideoDuration(file) {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    const url = URL.createObjectURL(file);
+    v.src = url;
+    v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration); };
+    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error('فشل')); };
+    setTimeout(() => reject(new Error('timeout')), 10000);
+  });
+}
+
+function startVoiceRecording() {
+  if (state.recording) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    sendMessage(state.activeChat.id, '🎙️ رسالة صوتية', 'voice', null, { duration: 5 }).then(() => { loadMessages(state.activeChat.id); renderMessages(); });
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    const recorder = new MediaRecorder(stream);
+    const chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const file = new File([blob], `voice_${Date.now()}.webm`, { type: 'audio/webm' });
+      const duration = Math.floor((Date.now() - state.recordingStart) / 1000);
+      showUploadProgress('رفع الصوت...');
+      try {
+        const url = await uploadFile(file, 'chat-media');
+        await sendMessage(state.activeChat.id, 'رسالة صوتية', 'voice', url, { duration });
+        state.replyTo = null; clearReplyPreview();
+        await loadMessages(state.activeChat.id);
+        renderMessages(); await loadChats();
+      } catch (e) { toast('فشل الرفع', 'error'); }
+      finally { hideUploadProgress(); }
+    };
+    recorder.start();
+    state.recording = true;
+    state.recordingStart = Date.now();
+    const btn = $('#btn-mic');
+    btn.classList.add('bg-red-500', 'text-white');
+    btn.innerHTML = `<span class="pulse-mic w-5 h-5 rounded-full bg-white/40"></span>`;
+    toast('🎙️ جاري التسجيل... اضغط للإرسال', 'info');
+    btn.onclick = () => {
+      recorder.stop();
+      state.recording = false;
+      btn.classList.remove('bg-red-500', 'text-white');
+      btn.innerHTML = icon('mic', 'w-5 h-5');
+      btn.onclick = startVoiceRecording;
+    };
+  }).catch(e => toast('لا يمكن الوصول للميكروفون', 'error'));
+}
+
+// ============================================================
+//  MESSAGES
+// ============================================================
+function renderMessages() {
+  const area = $('#messages');
+  if (!area || !state.activeChat) return;
+  const list = state.messages[state.activeChat.id] || [];
+  if (!list.length) {
+    area.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-center"><div class="text-4xl mb-3 opacity-20">👋</div><p class="text-muted text-sm">ابدأ المحادثة الآن</p></div>`;
+    return;
+  }
+  let html = '', lastDay = '', lastSender = '';
+  list.forEach(m => {
+    const day = fmtDay(m.created_at);
+    if (day !== lastDay) {
+      html += `<div class="flex justify-center my-3"><span class="px-3 py-1 rounded-full surface-2 text-muted text-xs font-semibold">${day}</span></div>`;
+      lastDay = day; lastSender = '';
+    }
+    const isMine = m.sender_id === state.user.id;
+    const showAvatar = !isMine && m.sender_id !== lastSender;
+    html += messageHTML(m, isMine, showAvatar);
+    lastSender = m.sender_id;
+  });
+  area.innerHTML = html;
+  $$('.msg-wrapper', area).forEach(w => {
+    const id = w.dataset.id;
+    const msg = list.find(m => m.id === id);
+    if (!msg || msg.is_deleted) return;
+    w.ondblclick = (e) => { e.preventDefault(); showMessageMenu(msg, w); };
+    w.oncontextmenu = (e) => { e.preventDefault(); showMessageMenu(msg, w); };
+  });
+  $$('[data-media-open]', area).forEach(el => {
+    el.onclick = (e) => {
+      e.preventDefault();
+      const msgId = el.dataset.mediaOpen;
+      const msg = list.find(m => m.id === msgId);
+      openMediaViewer(el.dataset.mediaUrl, el.dataset.mediaType, msg?.content);
+    };
+  });
+  $$('[data-avatar-open]', area).forEach(el => {
+    el.onclick = () => { const uid = el.dataset.avatarOpen; if (uid) openFullProfile(uid); };
+  });
+  setTimeout(() => area.scrollTop = area.scrollHeight, 50);
+  refreshIcons();
+}
+
+function messageHTML(m, isMine, showAvatar) {
+  const time = fmtTime(m.created_at);
+  const isChannel = state.activeChat.type === 'channel';
+  let content = '';
+  if (m.is_deleted) {
+    content = `<p class="italic opacity-50 text-sm">🚫 تم حذف هذه الرسالة</p>`;
+  } else if (m.type === 'image' && m.media_url) {
+    content = `<img src="${esc(m.media_url)}" class="rounded-lg mb-1 max-w-full max-h-80 object-cover cursor-pointer" data-media-open="${m.id}" data-media-url="${esc(m.media_url)}" data-media-type="image" loading="lazy" />`;
+  } else if (m.type === 'video' && m.media_url) {
+    content = `<div class="video-container mb-1 cursor-pointer relative" data-media-open="${m.id}" data-media-url="${esc(m.media_url)}" data-media-type="video">
+      <video src="${esc(m.media_url)}" preload="metadata" playsinline class="pointer-events-none"></video>
+      <div class="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none"><div class="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center">${icon('play', 'w-7 h-7 text-slate-900 ml-1')}</div></div>
+    </div>`;
+  } else if (m.type === 'audio' && m.media_url) {
+    content = `<audio src="${esc(m.media_url)}" controls class="mb-1" style="max-width:280px"></audio>`;
+  } else if (m.type === 'voice' && m.media_url) {
+    content = `<div class="flex items-center gap-2 py-1 min-w-[180px]"><audio src="${esc(m.media_url)}" controls style="max-width:220px"></audio>${m.media_duration ? `<span class="text-xs opacity-70 font-bold">${fmtDuration(m.media_duration)}</span>` : ''}</div>`;
+  } else if (m.type === 'voice') {
+    content = `<div class="flex items-center gap-2 py-1">${icon('mic', 'w-4 h-4')}<span class="text-sm">${esc(m.content || 'رسالة صوتية')}</span></div>`;
+  } else if (m.type === 'file') {
+    content = `<a href="${esc(m.media_url || '#')}" target="_blank" download class="flex items-center gap-2 underline opacity-90 py-1">${icon('file-text', 'w-4 h-4')} <span class="text-sm">${esc(m.content)}</span></a>`;
+  } else {
+    content = `<p class="whitespace-pre-wrap break-words leading-relaxed">${esc(m.content)}</p>`;
+  }
+  const bubbleStyle = isMine ? 'background: linear-gradient(135deg, #3478f6, #06b6d4); color: white;' : '';
+  const bubbleClass = isMine ? 'text-white rounded-tr-sm' : 'surface-3 text-primary rounded-tl-sm';
+  const reactions = m.reactions || [];
+  const counts = {};
+  reactions.forEach(r => counts[r.emoji] = (counts[r.emoji] || 0) + 1);
+  const showSenderName = !isMine && showAvatar && state.activeChat.type !== 'private';
+  return `
+    <div class="msg-wrapper message-hover flex ${isMine ? 'justify-start' : 'justify-end'} items-end gap-2" data-id="${m.id}">
+      ${!isMine && !isChannel ? `<div class="w-7 flex-shrink-0">${showAvatar ? `<div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold overflow-hidden cursor-pointer hover:opacity-80" data-avatar-open="${m.sender_id}" style="background: ${m.avatar_url ? 'transparent' : avGrad(m.sender_id)};">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover" />` : esc(m.full_name?.[0] || '?')}</div>` : ''}</div>` : ''}
+      <div class="max-w-[78%] sm:max-w-md relative">
+        ${showSenderName ? `<p class="text-[10px] text-blue-500 mb-1 mr-1 font-bold cursor-pointer hover:underline" data-avatar-open="${m.sender_id}">${esc(m.full_name || '')}</p>` : ''}
+        <div class="msg-bubble px-3 py-2 rounded-2xl shadow-sm anim-slide ${bubbleClass}" style="${bubbleStyle}">
+          ${content}
+          <div class="flex items-center justify-end gap-1 mt-1 text-[10px] opacity-70">${m.is_edited ? '<span class="italic">معدّلة</span>' : ''}<span>${time}</span>${isMine ? icon('check-check', 'w-3 h-3') : ''}</div>
+          ${Object.keys(counts).length ? `<div class="absolute -bottom-2.5 ${isMine ? 'left-2' : 'right-2'} flex gap-0.5 surface rounded-full px-2 py-0.5 border border-soft shadow-md">${Object.entries(counts).map(([e, c]) => `<span class="text-xs">${e}${c > 1 ? `<sub class="opacity-60 text-[8px] ml-0.5">${c}</sub>` : ''}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function showMessageMenu(msg, wrapper) {
+  $$('.msg-menu').forEach(m => m.remove());
+  const isMine = msg.sender_id === state.user.id;
+  const emojis = ['❤️','👍','😂','😮','😢','🔥','🎉','👏','🙏','💯'];
+  const menu = document.createElement('div');
+  menu.className = 'msg-menu context-menu surface border border-soft anim-pop';
+  menu.innerHTML = `
+    <div class="p-2 border-b border-soft"><div class="flex gap-0.5 flex-wrap justify-center max-w-[260px]">${emojis.map(e => `<button data-emoji="${e}" class="text-2xl p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 transition">${e}</button>`).join('')}</div></div>
+    <div class="p-1">
+      <button data-act="reply" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('reply', 'w-4 h-4')} رد</button>
+      ${isMine && msg.type === 'text' && !msg.is_deleted ? `<button data-act="edit" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('pencil', 'w-4 h-4')} تعديل</button>` : ''}
+      ${msg.content && !msg.is_deleted ? `<button data-act="copy" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('copy', 'w-4 h-4')} نسخ</button>` : ''}
+      ${msg.media_url ? `<button data-act="download" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('download', 'w-4 h-4')} حفظ</button>` : ''}
+      ${isMine ? `<button data-act="delete" class="w-full p-2.5 rounded-lg hover:bg-red-500/10 text-red-500 flex items-center gap-3 text-sm font-medium">${icon('trash-2', 'w-4 h-4')} حذف</button>` : ''}
+    </div>`;
+  const rect = wrapper.getBoundingClientRect();
+  const w = 260, h = 420;
+  let top = rect.bottom + 5;
+  if (top + h > window.innerHeight) top = Math.max(10, rect.top - h - 5);
+  let left = rect.left + rect.width / 2 - w / 2;
+  left = Math.max(10, Math.min(window.innerWidth - w - 10, left));
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+  document.body.appendChild(menu);
+  refreshIcons();
+  menu.querySelectorAll('[data-emoji]').forEach(b => b.onclick = async () => { await toggleReaction(msg.id, b.dataset.emoji); setTimeout(() => { loadMessages(state.activeChat.id).then(renderMessages); }, 300); menu.remove(); });
+  menu.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+    const act = b.dataset.act;
+    menu.remove();
+    if (act === 'delete') { if (!confirm('حذف الرسالة؟')) return; await deleteMessage(msg.id); await loadMessages(state.activeChat.id); renderMessages(); toast('تم الحذف ✓', 'success'); }
+    else if (act === 'edit') { const t = prompt('عدّل:', msg.content); if (t && t !== msg.content) { await editMessage(msg.id, t); await loadMessages(state.activeChat.id); renderMessages(); toast('تم التعديل ✓', 'success'); } }
+    else if (act === 'copy') { navigator.clipboard.writeText(msg.content || '').then(() => toast('تم النسخ ✓', 'success')); }
+    else if (act === 'download') { downloadMedia(msg.media_url, msg.content || 'file'); }
+    else if (act === 'reply') {
+      state.replyTo = msg.id;
+      const rp = $('#reply-preview');
+      rp.classList.remove('hidden');
+      const sender = msg.sender_id === state.user.id ? 'أنت' : msg.full_name;
+      rp.innerHTML = `<div class="flex items-center gap-2"><div class="flex-1 min-w-0"><p class="text-blue-500 text-xs font-bold">↩ ${esc(sender)}</p><p class="text-muted text-xs truncate">${esc((msg.content || '📎 مرفق').slice(0, 60))}</p></div><button id="cancel-reply" class="p-1 text-muted hover:text-red-500">${icon('x', 'w-4 h-4')}</button></div>`;
+      $('#cancel-reply').onclick = () => { state.replyTo = null; clearReplyPreview(); };
+      refreshIcons();
+      $('#msg-input').focus();
+    }
+  });
+  setTimeout(() => { const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+}
+
+// ============================================================
+//  MEDIA VIEWER
+// ============================================================
+function openMediaViewer(url, type, filename) {
+  const viewer = document.createElement('div');
+  viewer.className = 'media-viewer';
+  viewer.innerHTML = `
+    <div class="media-viewer-header">
+      <button id="mv-close" class="media-viewer-btn">${icon('x', 'w-6 h-6')}</button>
+      <span class="text-white text-sm font-bold flex-1 truncate">${esc(filename || (type === 'image' ? 'صورة' : type === 'video' ? 'فيديو' : 'ملف'))}</span>
+    </div>
+    <div class="media-viewer-content">
+      ${type === 'image' ? `<img src="${esc(url)}" alt="" />` : type === 'video' ? `<video src="${esc(url)}" controls autoplay playsinline></video>` : `<a href="${esc(url)}" target="_blank" class="text-white text-lg underline">تحميل الملف</a>`}
+    </div>
+    <div class="media-viewer-footer">
+      <button id="mv-download" class="media-viewer-btn" title="حفظ">${icon('download', 'w-6 h-6')}</button>
+      <button id="mv-share" class="media-viewer-btn" title="مشاركة">${icon('share-2', 'w-6 h-6')}</button>
+      <button id="mv-external" class="media-viewer-btn" title="فتح خارجياً">${icon('external-link', 'w-6 h-6')}</button>
+    </div>`;
+  document.body.appendChild(viewer);
+  refreshIcons();
+  $('#mv-close').onclick = () => viewer.remove();
+  $('#mv-download').onclick = () => downloadMedia(url, filename);
+  $('#mv-share').onclick = async () => { try { if (navigator.share) await navigator.share({ title: filename, url: url }); else { await navigator.clipboard.writeText(url); toast('تم نسخ الرابط ✓', 'success'); } } catch (e) {} };
+  $('#mv-external').onclick = () => window.open(url, '_blank');
+  viewer.onclick = (e) => { if (e.target === viewer) viewer.remove(); };
+}
+
+async function downloadMedia(url, filename) {
+  try {
+    toast('جارٍ التحميل...', 'info');
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl; a.download = filename || 'download';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    toast('تم التحميل ✓', 'success');
+  } catch (e) { console.error('download:', e); window.open(url, '_blank'); }
+}
+
+// ============================================================
+//  EMOJI
+// ============================================================
+function toggleEmoji() {
+  const wrap = $('#emoji-wrap');
+  if (!wrap) return;
+  if (wrap.children.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div class="absolute bottom-16 right-0 z-50 anim-pop"><emoji-picker></emoji-picker></div>`;
+  const picker = wrap.querySelector('emoji-picker');
+  picker.addEventListener('emoji-click', (e) => {
+    const input = $('#msg-input');
+    input.value += e.detail.unicode;
+    input.dispatchEvent(new Event('input'));
+    wrap.innerHTML = '';
+    input.focus();
+  });
+  setTimeout(() => { const close = (ev) => { if (!wrap.contains(ev.target) && !$('#btn-emoji')?.contains(ev.target)) { wrap.innerHTML = ''; document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+}
+
+function showUploadProgress(label = 'جارٍ الرفع...') {
+  const el = document.createElement('div');
+  el.className = 'upload-progress'; el.id = 'upload-progress';
+  el.innerHTML = `<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">${icon('upload-cloud', 'w-4 h-4 text-blue-400')}</div><div class="flex-1"><p class="font-bold text-sm">${esc(label)}</p><div class="bar"><div style="width: 0%"></div></div></div></div>`;
+  document.body.appendChild(el);
+  refreshIcons();
+}
+function updateUploadProgress(pct) { const el = $('#upload-progress'); if (el) el.querySelector('.bar > div').style.width = pct + '%'; }
+function hideUploadProgress() { $('#upload-progress')?.remove(); }
+
+// ============================================================
+//  ⭐ CALLS — WebRTC Full Implementation
+// ============================================================
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' }
+  ]
+};
+
+// ⭐ إصلاح 1: طلب الميكروفون والكاميرا بشكل صحيح
+async function getUserMediaSafe(type) {
+  try {
+    const constraints = {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 48000
+      },
+      video: type === 'video' ? {
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        facingMode: state.isFrontCamera ? 'user' : 'environment',
+        frameRate: { ideal: 30, max: 60 }
+      } : false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    return stream;
+  } catch (err) {
+    console.error('getUserMedia failed:', err);
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      throw new Error('يرجى السماح بالوصول للكاميرا والميكروفون من إعدادات المتصفح');
+    }
+    if (err.name === 'NotFoundError') {
+      throw new Error('لم يتم العثور على كاميرا أو ميكروفون');
+    }
+    if (err.name === 'NotReadableError') {
+      throw new Error('الكاميرا/الميكروفون مستخدمة من تطبيق آخر');
+    }
+    throw new Error('فشل الوصول للكاميرا والميكروفون: ' + err.message);
+  }
+}
+
+async function initiateCall(userId, type) {
+  if (state.currentCall) return toast('هناك مكالمة جارية', 'warning');
+  const { data: other } = await sb.from('profiles').select('*').eq('id', userId).single();
+  if (!other) return;
+  const { data: callRec, error } = await sb.from('calls').insert({
+    caller_id: state.user.id, receiver_id: userId,
+    type, status: 'ongoing', started_at: new Date().toISOString()
+  }).select().single();
+  if (error) { console.error('call error:', error); return toast('فشل بدء المكالمة', 'error'); }
+  state.currentCall = { ...callRec, other, isCaller: true, type };
+  await startWebRTC(callRec, other, type, true);
+  showCallScreen(other, type, true);
+}
+
+async function startWebRTC(callRec, other, type, isCaller) {
+  try {
+    // ⭐ احصل على الوسائط
+    state.localStream = await getUserMediaSafe(type);
+    
+    // ⭐ أنشئ peer connection
+    state.peerConnection = new RTCPeerConnection(ICE_SERVERS);
+    state.remoteStream = new MediaStream();
+    state.iceAddedCount = 0;
+
+    // أضف tracks محلية
+    state.localStream.getTracks().forEach(track => {
+      state.peerConnection.addTrack(track, state.localStream);
+    });
+
+    // استقبال remote tracks
+    state.peerConnection.ontrack = (event) => {
+      console.log('🎥 ontrack:', event.track.kind);
+      if (!state.remoteStream.getTracks().some(t => t.id === event.track.id)) {
+        state.remoteStream.addTrack(event.track);
+      }
+      attachRemoteStream();
+    };
+
+    // ICE candidates
+    state.peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        const field = isCaller ? 'caller_ice' : 'receiver_ice';
+        try {
+          const { data: existing } = await sb.from('calls').select(field).eq('id', callRec.id).single();
+          const currentIce = existing?.[field] || [];
+          await sb.from('calls').update({ [field]: [...currentIce, event.candidate.toJSON()] }).eq('id', callRec.id);
+        } catch (e) { console.warn('ICE save:', e); }
+      }
+    };
+
+    // حالة الاتصال
+    state.peerConnection.onconnectionstatechange = () => {
+      const st = state.peerConnection?.connectionState;
+      console.log('📡 Connection state:', st);
+      const statusEl = $('#call-status-text');
+      if (st === 'connected') {
+        state.callConnected = true;
+        if (statusEl) statusEl.textContent = 'متصل';
+        startCallTimer();
+      } else if (st === 'failed') {
+        toast('فشل الاتصال', 'error');
+      }
+    };
+
+    // اشترك في تحديثات المكالمة
+    subscribeToCallUpdates(callRec.id, isCaller);
+
+    if (isCaller) {
+      const offer = await state.peerConnection.createOffer();
+      await state.peerConnection.setLocalDescription(offer);
+      await sb.from('calls').update({ offer: offer }).eq('id', callRec.id);
+    }
+  } catch (e) {
+    console.error('startWebRTC:', e);
+    toast(e.message, 'error', 5000);
+    setTimeout(() => endCall(true), 1500);
+  }
+}
+
+function attachRemoteStream() {
+  // الفيديو الكبير
+  const remoteVideo = $('#call-remote-video');
+  if (remoteVideo && remoteVideo.srcObject !== state.remoteStream) {
+    remoteVideo.srcObject = state.remoteStream;
+    remoteVideo.play().catch(e => console.log('play video:', e));
+  }
+  // الفيديو الصغير للصوتية
+  const remoteVideoSmall = $('#call-remote-video-small');
+  if (remoteVideoSmall && remoteVideoSmall.srcObject !== state.remoteStream) {
+    remoteVideoSmall.srcObject = state.remoteStream;
+    remoteVideoSmall.play().catch(e => {});
+  }
+}
+
+function subscribeToCallUpdates(callId, isCaller) {
+  if (state.callChannel) { try { state.callChannel.unsubscribe(); } catch(e){} }
+  state.callChannel = sb.channel('call-' + callId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls', filter: `id=eq.${callId}` }, async (payload) => {
+      const call = payload.new;
+      if (call.ended_at && state.currentCall?.id === call.id) { endCall(true); return; }
+      
+      // المتصل: استقبل answer
+      if (isCaller && call.answer && state.peerConnection && !state.peerConnection.currentRemoteDescription) {
+        try {
+          await state.peerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
+          // أضف ICE للمستقبل
+          const receiverIce = call.receiver_ice || [];
+          for (const ice of receiverIce) {
+            try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(ice)); } catch (e) {}
+          }
+          state.iceAddedCount = receiverIce.length;
+        } catch (e) { console.warn('setRemote answer:', e); }
+      }
+      
+      // المستقبل: استقبل offer وأنشئ answer
+      if (!isCaller && call.offer && state.peerConnection && !state.peerConnection.currentRemoteDescription) {
+        try {
+          await state.peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+          const answer = await state.peerConnection.createAnswer();
+          await state.peerConnection.setLocalDescription(answer);
+          await sb.from('calls').update({ answer: answer, accepted_at: new Date().toISOString() }).eq('id', callId);
+          const callerIce = call.caller_ice || [];
+          for (const ice of callerIce) {
+            try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(ice)); } catch (e) {}
+          }
+          state.iceAddedCount = callerIce.length;
+        } catch (e) { console.warn('answer error:', e); }
+      }
+      
+      // أضف ICE جديدة
+      if (state.peerConnection) {
+        const remoteIce = isCaller ? (call.receiver_ice || []) : (call.caller_ice || []);
+        for (let i = state.iceAddedCount; i < remoteIce.length; i++) {
+          try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(remoteIce[i])); } catch (e) {}
+        }
+        state.iceAddedCount = remoteIce.length;
+      }
+    }).subscribe();
+}
+
+function startCallTimer() {
+  if (state.callTimerInterval) return;
+  state.callSeconds = 0;
+  state.callTimerInterval = setInterval(() => {
+    state.callSeconds++;
+    const el = $('#call-timer');
+    if (el) el.textContent = fmtDuration(state.callSeconds);
+  }, 1000);
+}
+
+function showCallScreen(other, type, isCaller) {
+  const overlay = document.createElement('div');
+  overlay.className = 'call-screen';
+  overlay.id = 'call-screen';
+
+  if (type === 'video') {
+    overlay.innerHTML = `
+      <div class="call-video-main">
+        <video id="call-remote-video" autoplay playsinline></video>
+      </div>
+      <div class="call-video-self" id="self-video-container">
+        <video id="call-local-video" autoplay playsinline muted></video>
+      </div>
+      <div class="call-header">
+        <div class="flex items-center gap-3">
+          <div class="call-header-btn" id="call-minimize">${icon('chevron-down', 'w-5 h-5')}</div>
+          <div>
+            <p class="text-white font-bold text-sm">${esc(other.full_name)}</p>
+            <p class="text-white/70 text-xs" id="call-status-text">${isCaller ? 'جاري الاتصال...' : 'متصل'}</p>
+          </div>
+        </div>
+        <div class="call-header-btn" id="call-cam-flip" title="تبديل الكاميرا">${icon('switch-camera', 'w-5 h-5')}</div>
+      </div>
+      <div class="call-footer">
+        <p class="text-center text-white/70 text-xs" id="call-timer">00:00</p>
+        <div class="call-controls">
+          <div class="call-btn" id="btn-mute">
+            <div class="call-btn-icon">${icon('mic', 'w-5 h-5')}</div>
+            <div class="call-btn-label">كتم</div>
+          </div>
+          <div class="call-btn active" id="btn-speaker">
+            <div class="call-btn-icon">${icon('volume-2', 'w-5 h-5')}</div>
+            <div class="call-btn-label">السماعة</div>
+          </div>
+          <div class="call-btn" id="btn-camera-off">
+            <div class="call-btn-icon">${icon('video', 'w-5 h-5')}</div>
+            <div class="call-btn-label">كاميرا</div>
+          </div>
+          <div class="call-btn danger" id="btn-end-call">
+            <div class="call-btn-icon">${icon('phone-off', 'w-6 h-6')}</div>
+            <div class="call-btn-label">إنهاء</div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    overlay.innerHTML = `
+      <div class="call-audio-view">
+        <div class="call-avatar-big" style="background: ${other.avatar_url ? 'transparent' : avGrad(other.id)};">
+          ${other.avatar_url ? `<img src="${esc(other.avatar_url)}" class="w-full h-full object-cover" />` : esc(other.full_name[0])}
+          <video id="call-remote-video-small" autoplay playsinline class="hidden"></video>
+        </div>
+        <div class="text-center">
+          <h2 class="text-2xl font-bold">${esc(other.full_name)}</h2>
+          <p class="text-white/70 text-sm mt-1" id="call-status-text">${isCaller ? 'جاري الاتصال...' : 'متصل'}</p>
+          <p class="text-white/50 text-sm mt-1" id="call-timer">00:00</p>
+        </div>
+      </div>
+      <div class="call-header">
+        <div class="flex items-center gap-3">
+          <div class="call-header-btn" id="call-minimize">${icon('chevron-down', 'w-5 h-5')}</div>
+          <p class="text-white font-bold text-sm">📞 مكالمة صوتية</p>
+        </div>
+      </div>
+      <div class="call-footer">
+        <div class="call-controls">
+          <div class="call-btn" id="btn-mute">
+            <div class="call-btn-icon">${icon('mic', 'w-5 h-5')}</div>
+            <div class="call-btn-label">كتم</div>
+          </div>
+          <div class="call-btn active" id="btn-speaker">
+            <div class="call-btn-icon">${icon('volume-2', 'w-5 h-5')}</div>
+            <div class="call-btn-label">السماعة</div>
+          </div>
+          <div class="call-btn" id="btn-video-enable">
+            <div class="call-btn-icon">${icon('video', 'w-5 h-5')}</div>
+            <div class="call-btn-label">فيديو</div>
+          </div>
+          <div class="call-btn danger" id="btn-end-call">
+            <div class="call-btn-icon">${icon('phone-off', 'w-6 h-6')}</div>
+            <div class="call-btn-label">إنهاء</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  document.body.appendChild(overlay);
+  refreshIcons();
+
+  // ربط الفيديو المحلي
+  setTimeout(() => {
+    const localVideo = $('#call-local-video');
+    if (localVideo && state.localStream) localVideo.srcObject = state.localStream;
+    const remoteVideo = $('#call-remote-video');
+    if (remoteVideo && state.remoteStream) {
+      remoteVideo.srcObject = state.remoteStream;
+      remoteVideo.play().catch(() => {});
+    }
+    const remoteVideoSmall = $('#call-remote-video-small');
+    if (remoteVideoSmall && state.remoteStream) {
+      remoteVideoSmall.srcObject = state.remoteStream;
+      remoteVideoSmall.play().catch(() => {});
+    }
+  }, 100);
+
+  // ⭐ إصلاح 2: كتم الميكروفون
+  $('#btn-end-call').onclick = () => endCall();
+  $('#call-minimize').onclick = () => { overlay.style.display = 'none'; toast('المكالمة مستمرة في الخلفية', 'info'); };
+  
+  const btnMute = $('#btn-mute');
+  btnMute.onclick = () => {
+    if (!state.localStream) return;
+    const audioTrack = state.localStream.getAudioTracks()[0];
+    if (!audioTrack) return toast('لا يوجد ميكروفون', 'warning');
+    audioTrack.enabled = !audioTrack.enabled;
+    state.isMuted = !audioTrack.enabled;
+    btnMute.classList.toggle('active', state.isMuted);
+    btnMute.querySelector('.call-btn-icon').innerHTML = state.isMuted ? icon('mic-off', 'w-5 h-5') : icon('mic', 'w-5 h-5');
+    btnMute.querySelector('.call-btn-label').textContent = state.isMuted ? 'مكتوم' : 'كتم';
+    refreshIcons();
+    toast(state.isMuted ? '🔇 تم الكتم' : '🎤 الصوت مفتوح', 'info', 1200);
+  };
+
+  // ⭐ إصلاح 3: السماعة (يعمل مع العناصر الصوتية)
+  const btnSpeaker = $('#btn-speaker');
+  btnSpeaker.onclick = async () => {
+    state.isSpeakerOn = !state.isSpeakerOn;
+    btnSpeaker.classList.toggle('active', state.isSpeakerOn);
+    btnSpeaker.querySelector('.call-btn-icon').innerHTML = state.isSpeakerOn ? icon('volume-2', 'w-5 h-5') : icon('volume-x', 'w-5 h-5');
+    refreshIcons();
+    // حاول استخدام setSinkId إن توفر
+    const remoteVideo = $('#call-remote-video') || $('#call-remote-video-small');
+    if (remoteVideo && typeof remoteVideo.setSinkId === 'function') {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+        if (state.isSpeakerOn && audioOutputs.length > 1) {
+          const speaker = audioOutputs.find(d => /speaker|default/i.test(d.label)) || audioOutputs[0];
+          await remoteVideo.setSinkId(speaker.deviceId);
+        } else {
+          await remoteVideo.setSinkId('');
+        }
+      } catch (e) { console.warn('setSinkId:', e); }
+    }
+    // على الجوال: كتم/فتح الفيديو البعيد للصوت
+    toast(state.isSpeakerOn ? '🔊 السماعة' : '📱 سماعة الأذن', 'info', 1200);
+  };
+
+  // ⭐ إصلاح 4: تبديل الكاميرا (يعمل صحيح مع replaceTrack)
+  const btnCam = $('#btn-camera-off');
+  if (btnCam) {
+    btnCam.onclick = () => {
+      if (!state.localStream) return;
+      const videoTrack = state.localStream.getVideoTracks()[0];
+      if (!videoTrack) return;
+      videoTrack.enabled = !videoTrack.enabled;
+      state.isVideoEnabled = videoTrack.enabled;
+      btnCam.classList.toggle('active', !state.isVideoEnabled);
+      btnCam.querySelector('.call-btn-icon').innerHTML = state.isVideoEnabled ? icon('video', 'w-5 h-5') : icon('video-off', 'w-5 h-5');
+      btnCam.querySelector('.call-btn-label').textContent = state.isVideoEnabled ? 'كاميرا' : 'موقوفة';
+      refreshIcons();
+    };
+  }
+
+  // ⭐ إصلاح 5: تبديل الكاميرا الأمامية/الخلفية
+  const btnFlip = $('#call-cam-flip');
+  if (btnFlip) {
+    btnFlip.onclick = async () => {
+      if (!state.localStream) return;
+      try {
+        state.isFrontCamera = !state.isFrontCamera;
+        const oldVideoTrack = state.localStream.getVideoTracks()[0];
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: state.isFrontCamera ? 'user' : 'environment' },
+          audio: false
+        });
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        if (state.peerConnection) {
+          const sender = state.peerConnection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) await sender.replaceTrack(newVideoTrack);
+        }
+        if (oldVideoTrack) { oldVideoTrack.stop(); state.localStream.removeTrack(oldVideoTrack); }
+        state.localStream.addTrack(newVideoTrack);
+        const localVideo = $('#call-local-video');
+        if (localVideo) {
+          localVideo.srcObject = state.localStream;
+          localVideo.play().catch(() => {});
+        }
+        toast('تم تبديل الكاميرا ✓', 'success', 1200);
+      } catch (e) { console.warn('flip:', e); toast('لا يمكن تبديل الكاميرا', 'warning'); }
+    };
+  }
+
+  const btnVideoEnable = $('#btn-video-enable');
+  if (btnVideoEnable) {
+    btnVideoEnable.onclick = async () => {
+      if (!state.peerConnection || !state.localStream) return;
+      try {
+        if (state.localStream.getVideoTracks().length > 0) {
+          // إيقاف الفيديو
+          const vt = state.localStream.getVideoTracks()[0];
+          vt.enabled = !vt.enabled;
+          btnVideoEnable.classList.toggle('active', !vt.enabled);
+          btnVideoEnable.querySelector('.call-btn-label').textContent = vt.enabled ? 'فيديو' : 'موقوف';
+        } else {
+          // تفعيل الفيديو
+          const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+          const vt = newStream.getVideoTracks()[0];
+          state.peerConnection.addTrack(vt, newStream);
+          state.localStream.addTrack(vt);
+          btnVideoEnable.classList.add('active');
+          toast('تم تفعيل الفيديو ✓', 'success');
+        }
+      } catch (e) { toast('فشل تفعيل الفيديو: ' + e.message, 'error'); }
+    };
+  }
+}
+
+async function endCall(silent = false) {
+  try {
+    if (state.callTimerInterval) { clearInterval(state.callTimerInterval); state.callTimerInterval = null; }
+    if (state.callChannel) { try { state.callChannel.unsubscribe(); } catch(e){} state.callChannel = null; }
+    if (state.peerConnection) { 
+      try { state.peerConnection.getSenders().forEach(s => { try { s.track?.stop(); } catch(e){} }); } catch(e){}
+      state.peerConnection.close(); 
+      state.peerConnection = null; 
+    }
+    if (state.localStream) { state.localStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} }); state.localStream = null; }
+    state.remoteStream = null;
+    state.iceAddedCount = 0;
+    state.callConnected = false;
+    state.callSeconds = 0;
+
+    if (state.currentCall && !silent) {
+      await sb.from('calls').update({ ended_at: new Date().toISOString(), status: 'answered' }).eq('id', state.currentCall.id);
+    }
+    state.currentCall = null;
+
+    const screen = $('#call-screen');
+    if (screen) screen.remove();
+    if (!silent) toast('انتهت المكالمة', 'info');
+  } catch (e) { console.error('endCall:', e); }
+}
+
+function showIncomingCall(call, caller) {
+  if ($('.incoming-call-screen')) return;
+  state.isIncomingCall = true;
+  const overlay = document.createElement('div');
+  overlay.className = 'incoming-call-screen';
+  overlay.innerHTML = `
+    <div class="text-center">
+      <p class="text-white/60 text-sm mb-2">${call.type === 'video' ? '📹 مكالمة فيديو واردة' : '📞 مكالمة صوتية واردة'}</p>
+      <div class="w-32 h-32 rounded-full flex items-center justify-center text-white text-5xl font-bold overflow-hidden mx-auto shadow-2xl ring-shake" style="background: ${caller.avatar_url ? 'transparent' : avGrad(caller.id)};">
+        ${caller.avatar_url ? `<img src="${esc(caller.avatar_url)}" class="w-full h-full object-cover" />` : esc(caller.full_name[0])}
+      </div>
+      <h2 class="text-2xl font-bold mt-4">${esc(caller.full_name)}</h2>
+      <p class="text-white/60 text-sm mt-1">@${esc(caller.username)}</p>
+    </div>
+    <div class="flex gap-8">
+      <button id="in-decline" class="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center shadow-2xl">${icon('phone-off', 'w-7 h-7')}</button>
+      <button id="in-accept" class="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center shadow-2xl ring-shake">${icon('phone', 'w-7 h-7')}</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  refreshIcons();
+
+  let ringCtx, ringOsc, ringInt;
+  try {
+    ringCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playRing = () => {
+      ringOsc = ringCtx.createOscillator();
+      const gain = ringCtx.createGain();
+      ringOsc.frequency.value = 400;
+      gain.gain.setValueAtTime(0.15, ringCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ringCtx.currentTime + 1);
+      ringOsc.connect(gain).connect(ringCtx.destination);
+      ringOsc.start();
+      ringOsc.stop(ringCtx.currentTime + 1);
+    };
+    playRing();
+    ringInt = setInterval(playRing, 2000);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate([500, 300, 500, 300, 500]);
+
+  const cleanup = () => {
+    try { if (ringInt) clearInterval(ringInt); ringOsc?.stop(); ringCtx?.close(); } catch(e){}
+    if (navigator.vibrate) navigator.vibrate(0);
+    overlay.remove();
+    state.isIncomingCall = false;
+  };
+
+  $('#in-accept').onclick = async () => {
+    cleanup();
+    state.currentCall = { ...call, other: caller, isCaller: false, type: call.type };
+    await startWebRTC(call, caller, call.type, false);
+    showCallScreen(caller, call.type, false);
+  };
+  $('#in-decline').onclick = async () => {
+    cleanup();
+    await sb.from('calls').update({ status: 'declined', ended_at: new Date().toISOString() }).eq('id', call.id);
+  };
+
+  setTimeout(() => {
+    if (overlay.parentNode && !state.currentCall) {
+      sb.from('calls').select('status, ended_at').eq('id', call.id).maybeSingle().then(({ data }) => {
+        if (data && (data.status === 'declined' || data.ended_at)) cleanup();
+      });
+    }
+  }, 45000);
+}
+
+async function openCallPicker(type) {
+  const { data: users } = await sb.from('profiles').select('*').neq('id', state.user.id).limit(50);
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-md surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] flex flex-col">
+      <div class="p-4 border-b border-soft flex items-center justify-between">
+        <h3 class="text-primary font-bold text-lg">${type === 'video' ? '📹 فيديو' : '📞 صوتية'}</h3>
+        <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
+      </div>
+      <div class="overflow-y-auto flex-1">
+        ${(users || []).map(u => `<button data-uid="${u.id}" class="pick-user w-full p-3 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden" style="background: ${u.avatar_url ? 'transparent' : avGrad(u.id)};">${u.avatar_url ? `<img src="${esc(u.avatar_url)}" class="w-full h-full object-cover" />` : esc(u.full_name[0])}</div>
+          <div class="flex-1 text-right"><p class="text-primary font-bold text-sm">${esc(u.full_name)}</p><p class="text-muted text-xs">${u.is_online ? '● متصل' : 'غير متصل'}</p></div>
+        </button>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelectorAll('.pick-user').forEach(b => b.onclick = () => { modal.remove(); initiateCall(b.dataset.uid, type); });
+}
+
+async function startCall(type) {
+  if (state.activeChat?.type === 'private') {
+    const o = getOther(state.activeChat);
+    if (o) return initiateCall(o.id, type);
+  }
+  openCallPicker(type);
+}
+
+// ============================================================
+//  CALLS SECTION
+// ============================================================
+async function renderCallsSection(container) {
+  container.innerHTML = `
+    <div class="p-3 border-b border-soft flex-shrink-0"><h3 class="text-primary font-bold text-lg">📞 المكالمات</h3></div>
+    <div class="flex-1 overflow-y-auto">
+      <div class="p-3 grid grid-cols-2 gap-2 border-b border-soft">
+        <button id="call-audio" class="p-3 rounded-xl surface-2 border border-soft hover:bg-blue-500/10 transition flex items-center gap-2">
+          <div class="w-10 h-10 rounded-full gradient-btn flex items-center justify-center text-white">${icon('phone', 'w-5 h-5')}</div>
+          <div class="text-right"><p class="text-primary font-bold text-xs">صوتية</p></div>
+        </button>
+        <button id="call-video" class="p-3 rounded-xl surface-2 border border-soft hover:bg-purple-500/10 transition flex items-center gap-2">
+          <div class="w-10 h-10 rounded-full gradient-purple flex items-center justify-center text-white">${icon('video', 'w-5 h-5')}</div>
+          <div class="text-right"><p class="text-primary font-bold text-xs">فيديو</p></div>
+        </button>
+      </div>
+      <p class="text-muted text-xs font-bold px-4 pt-4 pb-2">الحديثة</p>
+      <div id="calls-list"></div>
+    </div>`;
+  refreshIcons();
+  $('#call-audio').onclick = () => openCallPicker('audio');
+  $('#call-video').onclick = () => openCallPicker('video');
+  const { data: calls } = await sb.from('calls').select('*').or(`caller_id.eq.${state.user.id},receiver_id.eq.${state.user.id}`).order('started_at', { ascending: false }).limit(50);
+  const list = $('#calls-list');
+  if (!calls?.length) { list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">📞</div><p class="text-muted text-sm">لا مكالمات حديثة</p></div>`; return; }
+  const ids = new Set();
+  calls.forEach(c => { ids.add(c.caller_id); ids.add(c.receiver_id); });
+  const { data: users } = await sb.from('profiles').select('id, full_name, avatar_url').in('id', [...ids]);
+  const uMap = {};
+  (users || []).forEach(u => uMap[u.id] = u);
+  list.innerHTML = calls.map(c => {
+    const otherId = c.caller_id === state.user.id ? c.receiver_id : c.caller_id;
+    const other = uMap[otherId];
+    if (!other) return '';
+    const isOutgoing = c.caller_id === state.user.id;
+    const missed = c.status === 'missed';
+    return `
+      <div class="call-item w-full p-3 flex items-center gap-3">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0" style="background: ${other.avatar_url ? 'transparent' : avGrad(other.id)};">${other.avatar_url ? `<img src="${esc(other.avatar_url)}" class="w-full h-full object-cover" />` : esc(other.full_name[0])}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-primary font-bold text-sm truncate ${missed ? 'text-red-500' : ''}">${esc(other.full_name)}</p>
+          <p class="text-muted text-xs flex items-center gap-1">${isOutgoing ? icon('arrow-up-right', 'w-3 h-3') : icon('arrow-down-left', 'w-3 h-3 text-emerald-500')}${missed ? 'فائتة' : 'مكتملة'} • ${fmtTime(c.started_at)}</p>
+        </div>
+        <span class="p-2 text-muted">${c.type === 'video' ? icon('video', 'w-5 h-5') : icon('phone', 'w-5 h-5')}</span>
+      </div>`;
+  }).join('');
+  refreshIcons();
+}
+
+// ============================================================
+//  NEW CHAT MODAL
+// ============================================================
+async function openNewChatModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-lg surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] flex flex-col">
+      <div class="p-4 border-b border-soft flex items-center justify-between flex-shrink-0">
+        <h3 class="text-primary font-bold text-lg">إنشاء جديد</h3>
+        <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
+      </div>
+      <div class="flex gap-2 p-3 border-b border-soft flex-shrink-0">
+        ${[{ k: 'private', label: 'محادثة', icon: 'user' }, { k: 'group', label: 'مجموعة', icon: 'users' }, { k: 'channel', label: 'قناة', icon: 'radio' }].map((t, i) => `
+          <button data-mode="${t.k}" class="ntab flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${i === 0 ? 'tab-active' : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'}">
+            ${icon(t.icon, 'w-4 h-4')} ${t.label}
+          </button>`).join('')}
+      </div>
+      <div id="extra-fields" class="p-3 border-b border-soft hidden flex-shrink-0 space-y-2">
+        <input id="cname" type="text" placeholder="الاسم" maxlength="60" class="w-full px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+        <input id="cdesc" type="text" placeholder="الوصف (اختياري)" maxlength="120" class="w-full px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+      </div>
+      <div class="p-3 flex-shrink-0">
+        <div class="relative">
+          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted">${icon('search', 'w-4 h-4')}</span>
+          <input id="usearch" type="text" placeholder="ابحث بالاسم أو @يوزر..." class="w-full pr-10 pl-4 py-2.5 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+        </div>
+      </div>
+      <div id="ulist" class="flex-1 overflow-y-auto px-3 pb-3 min-h-[150px]">
+        <div class="flex items-center justify-center py-8"><div class="w-6 h-6 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>
+      </div>
+      <div id="create-wrap" class="p-4 border-t border-soft hidden flex-shrink-0">
+        <button id="btn-create" disabled class="w-full py-3 gradient-btn text-white font-bold rounded-xl">إنشاء</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  let mode = 'private';
+  const selected = new Set();
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelectorAll('.ntab').forEach(b => b.onclick = () => {
+    mode = b.dataset.mode;
+    modal.querySelectorAll('.ntab').forEach(x => { x.className = `ntab flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition ${x === b ? 'tab-active' : 'text-muted hover:bg-black/5 dark:hover:bg-white/5'}`; });
+    $('#extra-fields', modal).classList.toggle('hidden', mode === 'private');
+    $('#create-wrap', modal).classList.toggle('hidden', mode === 'private');
+  });
+  function renderUsers(users) {
+    const list = $('#ulist', modal);
+    if (!users.length) { list.innerHTML = `<p class="text-center text-muted py-8 text-sm">لا نتائج</p>`; return; }
+    list.innerHTML = users.map(u => `
+      <button data-uid="${u.id}" class="urow w-full p-3 rounded-xl flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition ${selected.has(u.id) ? 'bg-blue-500/10' : ''}">
+        <div class="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0" style="background: ${u.avatar_url ? 'transparent' : avGrad(u.id)};">
+          ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" class="w-full h-full object-cover" />` : esc(u.full_name[0])}
+          ${u.is_online ? `<span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white dark:border-slate-900"></span>` : ''}
+        </div>
+        <div class="flex-1 text-right min-w-0"><p class="text-primary font-bold text-sm truncate">${esc(u.full_name)}</p><p class="text-muted text-xs truncate">@${esc(u.username)}</p></div>
+        ${selected.has(u.id) ? `<span class="text-blue-500">${icon('check', 'w-5 h-5')}</span>` : ''}
+      </button>`).join('');
+    list.querySelectorAll('.urow').forEach(row => row.onclick = () => {
+      const uid = row.dataset.uid;
+      if (mode === 'private') { modal.remove(); startPrivateChat(uid); return; }
+      if (selected.has(uid)) selected.delete(uid); else selected.add(uid);
+      updateBtn(); renderUsers(users);
+    });
+    refreshIcons();
+  }
+  function updateBtn() { const name = $('#cname', modal).value.trim(); $('#btn-create', modal).disabled = !name || selected.size === 0; }
+  $('#cname', modal).oninput = updateBtn;
+  const search = $('#usearch', modal);
+  const doSearch = debounce(async (q) => {
+    const list = $('#ulist', modal);
+    list.innerHTML = `<div class="flex items-center justify-center py-8"><div class="w-6 h-6 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>`;
+    try { const results = await searchUsersAll(q); renderUsers(results); }
+    catch (e) { list.innerHTML = `<p class="text-center text-red-500 text-sm py-8">فشل البحث</p>`; }
+  }, 250);
+  search.oninput = () => doSearch(search.value);
+  doSearch('');
+  $('#btn-create', modal).onclick = async () => {
+    const name = $('#cname', modal).value.trim();
+    const desc = $('#cdesc', modal).value.trim();
+    if (!name || selected.size === 0) return;
+    const btn = $('#btn-create', modal);
+    btn.disabled = true; btn.textContent = 'جارٍ الإنشاء...';
+    try {
+      const chat = await createGroupOrChannel(mode, name, desc, [...selected]);
+      modal.remove(); await loadChats();
+      state.activeSection = 'chats'; renderBottomNav(); renderNavRail();
+      openChat(chat.id);
+      toast('تم الإنشاء ✓', 'success');
+    } catch (e) { console.error(e); toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'إنشاء'; }
+  };
+}
+
+// ============================================================
+//  PROFILE EDIT MODAL
+// ============================================================
+async function openProfileModal() {
+  const p = state.profile;
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-md surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] overflow-y-auto">
+      <div class="p-4 border-b border-soft flex items-center justify-between sticky top-0 surface z-10">
+        <h3 class="text-primary font-bold text-lg">تعديل الملف الشخصي</h3>
+        <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="flex justify-center">
+          <label class="relative cursor-pointer group">
+            <div class="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold overflow-hidden shadow-lg" style="background: ${p?.avatar_url ? 'transparent' : avGrad(state.user.id)};">
+              ${p?.avatar_url ? `<img src="${esc(p.avatar_url)}" class="w-full h-full object-cover" />` : esc(p?.full_name?.[0] || '?')}
+            </div>
+            <div class="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">${icon('camera', 'w-6 h-6 text-white')}</div>
+            <input id="av-in" type="file" accept="image/*" hidden />
+          </label>
+        </div>
+        <div><label class="text-muted text-xs font-bold">الاسم الكامل</label><input id="p-name" type="text" value="${esc(p?.full_name || '')}" maxlength="60" class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary focus:outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
+        <div><label class="text-muted text-xs font-bold">اسم المستخدم (@)</label><input id="p-username" type="text" value="${esc(p?.username || '')}" pattern="[a-zA-Z0-9_]{3,20}" class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary focus:outline-none focus:ring-2 focus:ring-blue-500/50" /><p class="text-muted text-[10px] mt-1">3-20 حرف إنجليزي/رقم/underscore</p></div>
+        <div><label class="text-muted text-xs font-bold">النبذة</label><textarea id="p-bio" rows="3" maxlength="200" placeholder="اكتب نبذة..." class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none">${esc(p?.bio || '')}</textarea></div>
+        <div><label class="text-muted text-xs font-bold">تاريخ الميلاد</label><input id="p-birthday" type="date" value="${p?.birthday || ''}" class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary focus:outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
+        <div><label class="text-muted text-xs font-bold">الهاتف (اختياري)</label><input id="p-phone" type="tel" value="${esc(p?.phone || '')}" dir="ltr" class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary focus:outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
+        <div><label class="text-muted text-xs font-bold">الموقع (اختياري)</label><input id="p-location" type="text" value="${esc(p?.location || '')}" placeholder="مثال: بغداد، العراق" class="w-full mt-1 px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" /></div>
+        <button id="p-save" class="w-full py-3 gradient-btn text-white font-bold rounded-xl">حفظ</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  $('#av-in', modal).onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return toast('الصورة كبيرة (5MB)', 'error');
+    showUploadProgress('رفع الصورة...');
+    try {
+      const url = await uploadFile(file, 'avatars');
+      const updated = await saveMyProfile({ avatar_url: url });
+      state.profile = updated;
+      toast('تم تحديث الصورة ✓', 'success');
+      modal.remove();
+      renderSidebar(); renderNavRail(); await loadChats();
+    } catch (err) { console.error('avatar:', err); toast(err.message, 'error'); }
+    finally { hideUploadProgress(); }
+  };
+  $('#p-save', modal).onclick = async () => {
+    const full_name = $('#p-name', modal).value.trim();
+    const username = $('#p-username', modal).value.trim().toLowerCase();
+    const bio = $('#p-bio', modal).value.trim();
+    const birthday = $('#p-birthday', modal).value || null;
+    const phone = $('#p-phone', modal).value.trim() || null;
+    const location = $('#p-location', modal).value.trim() || null;
+    if (!full_name) return toast('الاسم مطلوب', 'error');
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return toast('اسم المستخدم غير صالح', 'error');
+    const btn = $('#p-save', modal);
+    btn.disabled = true; btn.textContent = 'جارٍ الحفظ...';
+    try {
+      const updated = await saveMyProfile({ full_name, username, bio, birthday, phone, location });
+      state.profile = updated;
+      toast('تم الحفظ ✓', 'success');
+      modal.remove();
+      renderSidebar(); renderNavRail(); await loadChats();
+    } catch (e) { console.error('save:', e); toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'حفظ'; }
+  };
+}
+
+// ============================================================
+//  ADD STATUS MODAL
+// ============================================================
+async function openAddStatusModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-md surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] overflow-y-auto">
+      <div class="p-4 border-b border-soft flex items-center justify-between">
+        <h3 class="text-primary font-bold text-lg">حالة جديدة</h3>
+        <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="flex gap-2">
+          <button data-type="text" class="stype flex-1 py-2 rounded-lg text-xs font-bold tab-active">${icon('type', 'w-3 h-3 inline')} نص</button>
+          <button data-type="image" class="stype flex-1 py-2 rounded-lg text-xs font-bold text-muted">${icon('image', 'w-3 h-3 inline')} صورة</button>
+          <button data-type="video" class="stype flex-1 py-2 rounded-lg text-xs font-bold text-muted">${icon('video', 'w-3 h-3 inline')} فيديو</button>
+        </div>
+        <div id="text-fields">
+          <textarea id="st-text" rows="4" placeholder="ماذا يدور في ذهنك؟" maxlength="200" class="w-full px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"></textarea>
+        </div>
+        <div id="media-fields" class="hidden">
+          <input id="st-file" type="file" hidden />
+          <button id="st-pick" class="w-full py-8 rounded-xl surface-2 border-2 border-dashed border-soft hover:border-blue-500 transition flex flex-col items-center gap-2">
+            ${icon('upload-cloud', 'w-8 h-8 text-muted')}
+            <span class="text-primary font-bold text-sm">اختر ملفاً</span>
+            <span class="text-muted text-xs">صورة أو فيديو (حتى 60 ثانية، 100MB)</span>
+          </button>
+          <div id="st-preview" class="hidden mt-3"></div>
+          <input id="st-caption" type="text" placeholder="تعليق (اختياري)" maxlength="100" class="w-full mt-3 px-4 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+        </div>
+        <p class="text-muted text-xs font-bold">خلفية النص:</p>
+        <div class="grid grid-cols-4 gap-2">
+          ${['linear-gradient(135deg, #3478f6, #06b6d4)','linear-gradient(135deg, #8b5cf6, #ec4899)','linear-gradient(135deg, #f59e0b, #ef4444)','linear-gradient(135deg, #10b981, #06b6d4)','linear-gradient(135deg, #6366f1, #8b5cf6)','linear-gradient(135deg, #ec4899, #f43f5e)','linear-gradient(135deg, #14b8a6, #10b981)','linear-gradient(135deg, #f97316, #f59e0b)'].map((bg, i) => `<button data-bg="${bg}" class="bg-option w-full h-12 rounded-xl border-2 ${i === 0 ? 'border-blue-500' : 'border-transparent'}" style="background: ${bg};"></button>`).join('')}
+        </div>
+        <button id="st-publish" class="w-full py-3 gradient-btn text-white font-bold rounded-xl">نشر الحالة</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  let selectedBg = 'linear-gradient(135deg, #3478f6, #06b6d4)';
+  let stType = 'text';
+  let mediaFile = null;
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelectorAll('.bg-option').forEach(b => b.onclick = () => {
+    modal.querySelectorAll('.bg-option').forEach(x => { x.classList.remove('border-blue-500'); x.classList.add('border-transparent'); });
+    b.classList.remove('border-transparent'); b.classList.add('border-blue-500');
+    selectedBg = b.dataset.bg;
+  });
+  modal.querySelectorAll('.stype').forEach(b => b.onclick = () => {
+    stType = b.dataset.type;
+    modal.querySelectorAll('.stype').forEach(x => x.className = `stype flex-1 py-2 rounded-lg text-xs font-bold transition ${x === b ? 'tab-active' : 'text-muted'}`);
+    $('#text-fields', modal).classList.toggle('hidden', stType !== 'text');
+    $('#media-fields', modal).classList.toggle('hidden', stType === 'text');
+  });
+  $('#st-pick', modal).onclick = () => $('#st-file', modal).click();
+  $('#st-file', modal).onchange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    mediaFile = f;
+    const preview = $('#st-preview', modal);
+    preview.classList.remove('hidden');
+    if (f.type.startsWith('image/')) {
+      const url = URL.createObjectURL(f);
+      preview.innerHTML = `<img src="${url}" class="w-full rounded-xl max-h-48 object-cover" />`;
+    } else {
+      preview.innerHTML = `<div class="p-3 rounded-xl surface-2 flex items-center gap-2">${icon('video', 'w-6 h-6 text-blue-500')}<span class="text-primary text-sm font-bold truncate">${esc(f.name)}</span></div>`;
+    }
+  };
+  $('#st-publish', modal).onclick = async () => {
+    const btn = $('#st-publish', modal);
+    btn.disabled = true; btn.textContent = 'جارٍ النشر...';
+    try {
+      let media_url = null, type = 'text', content = '';
+      if (stType === 'text') {
+        content = $('#st-text', modal).value.trim();
+        if (!content) throw new Error('اكتب شيئاً');
+      } else {
+        if (!mediaFile) throw new Error('اختر ملفاً');
+        if (stType === 'video') {
+          const duration = await getVideoDuration(mediaFile).catch(() => null);
+          if (duration && duration > 65) throw new Error(`الفيديو طويل (${Math.round(duration)}ث) - الحد 60 ثانية`);
+        }
+        showUploadProgress('رفع الحالة...');
+        media_url = await uploadFile(mediaFile, 'status-media');
+        type = stType;
+        content = $('#st-caption', modal).value.trim();
+      }
+      await publishStatus({ type, content, media_url, background_color: stType === 'text' ? selectedBg : null });
+      modal.remove();
+      toast('✅ تم نشر الحالة', 'success');
+      if (state.activeSection === 'stories') renderSidebarContent();
+      else { state.activeSection = 'stories'; renderBottomNav(); renderNavRail(); renderSidebarContent(); }
+    } catch (e) { console.error('publishStatus:', e); toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'نشر الحالة'; }
+    finally { hideUploadProgress(); }
+  };
+}
+
+// ============================================================
+//  STORY VIEWER ⭐ مع تفاعلات الإيموجي
+// ============================================================
+async function openStoryViewer(userId) {
+  const now = new Date().toISOString();
+  const { data: statuses } = await sb.from('statuses')
+    .select('*, profiles:user_id (id, full_name, avatar_url)')
+    .eq('user_id', userId).gt('expires_at', now)
+    .order('created_at', { ascending: true });
+  if (!statuses?.length) return toast('لا توجد حالات', 'warning');
+  const user = statuses[0].profiles;
+
+  const viewer = document.createElement('div');
+  viewer.className = 'fixed inset-0 bg-black z-[200] flex items-center justify-center select-none';
+  viewer.innerHTML = `
+    <div class="relative w-full h-full max-w-md mx-auto overflow-hidden">
+      <div id="story-content" class="absolute inset-0 flex items-center justify-center text-white p-6 text-center text-xl font-bold transition-all"></div>
+      
+      <div class="absolute top-3 left-3 right-3 flex gap-1 z-20">
+        ${statuses.map((_, i) => `<div class="flex-1 h-1 rounded-full bg-white/30 overflow-hidden"><div class="h-full bg-white" data-prog="${i}" style="width: 0%; transition: width 0ms linear;"></div></div>`).join('')}
+      </div>
+      
+      <div class="absolute top-8 left-3 right-3 flex items-center gap-3 text-white z-20">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 cursor-pointer" data-avatar-open="${userId}" style="background: ${user.avatar_url ? 'transparent' : avGrad(user.id)};">
+          ${user.avatar_url ? `<img src="${esc(user.avatar_url)}" class="w-full h-full object-cover rounded-full" />` : esc(user.full_name[0])}
+        </div>
+        <div class="flex-1 min-w-0 cursor-pointer" data-avatar-open="${userId}">
+          <p class="font-bold text-sm truncate">${esc(user.full_name)}</p>
+          <p class="text-xs opacity-70" id="story-time"></p>
+        </div>
+        <button id="pause-story" class="p-2 flex-shrink-0">${icon('pause', 'w-5 h-5')}</button>
+        <button id="close-story" class="p-2 flex-shrink-0">${icon('x', 'w-6 h-6')}</button>
+      </div>
+      
+      <!-- ❤️ Reactions bar -->
+      <div class="status-reaction-bubble" id="reactions-bar">
+        <button data-react="❤️">❤️</button>
+        <button data-react="😂">😂</button>
+        <button data-react="😮">😮</button>
+        <button data-react="😢">😢</button>
+        <button data-react="👍">👍</button>
+        <button data-react="🔥">🔥</button>
+      </div>
+      
+      <button id="prev-story" class="absolute top-24 bottom-24 left-0 w-1/3 z-10"></button>
+      <button id="next-story" class="absolute top-24 bottom-24 right-0 w-1/3 z-10"></button>
+      
+      <div class="absolute bottom-4 left-3 right-3 flex items-center gap-2 z-20">
+        <input id="story-reply" type="text" placeholder="أرسل رسالة..." class="flex-1 px-4 py-3 rounded-full bg-white/10 backdrop-blur text-white placeholder-white/50 text-sm focus:outline-none border border-white/20" />
+        <button id="story-send" class="p-3 rounded-full bg-blue-500 text-white">${icon('send', 'w-5 h-5')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(viewer);
+  refreshIcons();
+  for (const st of statuses) await markStatusSeen(st.id);
+  
+  let idx = 0, timer = null, paused = false, remainingTime = 5000, pausedAt = 0;
+  const progressEls = viewer.querySelectorAll('[data-prog]');
+  
+  function show(i) {
+    clearTimeout(timer);
+    if (i < 0) i = 0;
+    if (i >= statuses.length) return close();
+    idx = i; paused = false;
+    const st = statuses[idx];
+    const contentEl = $('#story-content', viewer);
+    if (st.type === 'text' || !st.media_url) {
+      contentEl.style.background = st.background_color || 'linear-gradient(135deg,#3478f6,#06b6d4)';
+      contentEl.innerHTML = `<div class="anim-fade">${esc(st.content || '').replace(/\n/g, '<br>')}</div>`;
+    } else if (st.type === 'image') {
+      contentEl.style.background = '#000';
+      contentEl.innerHTML = `<img src="${esc(st.media_url)}" class="max-w-full max-h-full object-contain anim-fade" />`;
+    } else if (st.type === 'video') {
+      contentEl.style.background = '#000';
+      contentEl.innerHTML = `<video src="${esc(st.media_url)}" autoplay playsinline class="max-w-full max-h-full anim-fade"></video>`;
+    }
+    $('#story-time', viewer).textContent = fmtLastSeen(st.created_at);
+    progressEls.forEach((el, k) => { el.style.transitionDuration = '0ms'; el.style.width = k < idx ? '100%' : '0%'; });
+    const dur = st.type === 'video' ? 15000 : 5000;
+    remainingTime = dur;
+    pausedAt = Date.now();
+    setTimeout(() => {
+      if (progressEls[idx] && !paused) {
+        progressEls[idx].style.transitionDuration = dur + 'ms';
+        progressEls[idx].style.width = '100%';
+      }
+    }, 50);
+    timer = setTimeout(() => show(idx + 1), dur);
+  }
+  function pause() {
+    if (paused) return;
+    paused = true;
+    clearTimeout(timer);
+    remainingTime -= Date.now() - pausedAt;
+    $('#pause-story').innerHTML = icon('play', 'w-5 h-5');
+    refreshIcons();
+  }
+  function resume() {
+    if (!paused) return;
+    paused = false;
+    pausedAt = Date.now();
+    const el = progressEls[idx];
+    if (el) {
+      const cs = getComputedStyle(el);
+      el.style.width = cs.width;
+      el.style.transitionDuration = remainingTime + 'ms';
+      setTimeout(() => { el.style.width = '100%'; }, 30);
+    }
+    $('#pause-story').innerHTML = icon('pause', 'w-5 h-5');
+    refreshIcons();
+    timer = setTimeout(() => show(idx + 1), remainingTime);
+  }
+  function close() {
+    clearTimeout(timer);
+    viewer.remove();
+    if (state.activeSection === 'stories') renderSidebarContent();
+  }
+  $('#close-story', viewer).onclick = close;
+  $('#pause-story', viewer).onclick = () => paused ? resume() : pause();
+  $('#next-story', viewer).onclick = () => show(idx + 1);
+  $('#prev-story', viewer).onclick = () => show(idx - 1);
+  viewer.querySelectorAll('[data-avatar-open]').forEach(el => el.onclick = () => { close(); openFullProfile(userId); });
+  
+  // Reactions
+  viewer.querySelectorAll('[data-react]').forEach(btn => {
+    btn.onclick = async () => {
+      const emoji = btn.dataset.react;
+      const st = statuses[idx];
+      await addStatusReaction(st.id, emoji);
+      // Floating animation
+      const float = document.createElement('div');
+      float.textContent = emoji;
+      float.style.cssText = `position:fixed;bottom:200px;left:50%;transform:translateX(-50%);font-size:50px;pointer-events:none;z-index:999;`;
+      float.classList.add('heart-float');
+      document.body.appendChild(float);
+      setTimeout(() => float.remove(), 2000);
+      toast(`أرسلت ${emoji}`, 'success', 1200);
+    };
+  });
+  
+  $('#story-send', viewer).onclick = async () => {
+    const reply = $('#story-reply', viewer).value.trim();
+    if (!reply) return;
+    try {
+      let chatId;
+      const { data: myChats } = await sb.from('chat_members').select('chat_id, chats:chat_id!inner(type)').eq('user_id', state.user.id).eq('chats.type', 'private');
+      const chatIds = (myChats || []).map(m => m.chat_id);
+      if (chatIds.length) {
+        const { data: theirMem } = await sb.from('chat_members').select('chat_id').eq('user_id', userId).in('chat_id', chatIds);
+        if (theirMem?.length) chatId = theirMem[0].chat_id;
+      }
+      if (!chatId) {
+        const { data: chat } = await sb.from('chats').insert({ type: 'private', created_by: state.user.id }).select().single();
+        await sb.from('chat_members').insert([
+          { chat_id: chat.id, user_id: state.user.id, role: 'owner' },
+          { chat_id: chat.id, user_id: userId, role: 'member' }
+        ]);
+        chatId = chat.id;
+      }
+      await sendMessage(chatId, `↩ رداً على حالتك: ${reply}`);
+      $('#story-reply', viewer).value = '';
+      toast('تم إرسال الرد ✓', 'success');
+    } catch (e) { toast('فشل الإرسال', 'error'); }
+  };
+  show(0);
+}
+
+// ============================================================
+//  CHAT INFO / MENU
+// ============================================================
+async function openChatInfo() {
+  const chat = state.activeChat;
+  if (!chat) return;
+  const isPrivate = chat.type === 'private';
+  const o = getOther(chat);
+  if (isPrivate && o) return openFullProfile(o.id);
+  const title = chat.name || '';
+  const avatar = chat.avatar_url;
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-md surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] overflow-y-auto">
+      <div class="p-4 border-b border-soft flex items-center justify-between sticky top-0 surface z-10">
+        <h3 class="text-primary font-bold text-lg">معلومات</h3>
+        <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="flex flex-col items-center">
+          <div class="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold overflow-hidden mb-3 shadow-lg" style="background: ${avatar ? 'transparent' : avGrad(chat.id)};">${avatar ? `<img src="${esc(avatar)}" class="w-full h-full object-cover" />` : esc(title[0] || '?')}</div>
+          <p class="text-primary font-bold text-lg">${esc(title)}</p>
+          <p class="text-muted text-sm">${esc(chat.description || (chat.type === 'channel' ? 'قناة' : 'مجموعة'))}</p>
+          <p class="text-muted text-xs mt-2">${chat.members?.length || 0} ${chat.type === 'channel' ? 'مشترك' : 'عضو'}</p>
+        </div>
+        ${chat.members?.length ? `<div><p class="text-muted text-xs font-bold mb-2">الأعضاء (${chat.members.length})</p><div class="space-y-1 max-h-60 overflow-y-auto">
+          ${chat.members.map(m => `<div class="flex items-center gap-2 p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer" data-member-open="${m.id}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden" style="background: ${m.avatar_url ? 'transparent' : avGrad(m.id)};">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover" />` : esc(m.full_name[0])}</div><span class="text-primary text-sm flex-1">${esc(m.full_name)}</span>${m.role === 'owner' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-bold">مالك</span>` : ''}</div>`).join('')}
+        </div></div>` : ''}
+        <button id="info-clear" class="w-full p-3 rounded-xl bg-red-500/10 text-red-500 text-sm font-bold hover:bg-red-500/20 flex items-center justify-center gap-3">${icon('trash-2', 'w-4 h-4')} مسح المحادثة</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.querySelectorAll('[data-member-open]').forEach(el => el.onclick = () => { modal.remove(); openFullProfile(el.dataset.memberOpen); });
+  $('#info-clear', modal)?.addEventListener('click', async () => {
+    if (!confirm('مسح كل الرسائل؟')) return;
+    await sb.from('messages').delete().eq('chat_id', chat.id);
+    modal.remove(); await loadMessages(chat.id); renderMessages(); await loadChats();
+    toast('تم المسح ✓', 'success');
+  });
+}
+
+function openChatMenu() {
+  const chat = state.activeChat;
+  if (!chat) return;
+  const items = [
+    { icon: 'info', label: 'معلومات', act: openChatInfo },
+    { icon: 'trash-2', label: 'مسح المحادثة', act: async () => { if (!confirm('مسح كل الرسائل؟')) return; await sb.from('messages').delete().eq('chat_id', chat.id); await loadMessages(chat.id); renderMessages(); await loadChats(); toast('تم المسح ✓', 'success'); }, danger: true }
+  ];
+  const menu = document.createElement('div');
+  menu.className = 'msg-menu context-menu surface border border-soft anim-pop';
+  menu.style.top = '60px'; menu.style.left = '20px';
+  menu.innerHTML = `<div class="p-1">${items.map((it, i) => `<button data-i="${i}" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${it.danger ? 'text-red-500' : 'text-primary'} flex items-center gap-3 text-sm font-medium">${icon(it.icon, 'w-4 h-4')} ${it.label}</button>`).join('')}</div>`;
+  document.body.appendChild(menu);
+  refreshIcons();
+  menu.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const it = items[parseInt(b.dataset.i)]; menu.remove(); it.act(); });
+  setTimeout(() => { const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+}
+
+// ============================================================
+//  START PRIVATE CHAT
+// ============================================================
+async function startPrivateChat(otherId) {
+  try {
+    await ensureFriendship(otherId);
+    const { data: myChats } = await sb.from('chat_members').select('chat_id, chats:chat_id!inner(id, type)').eq('user_id', state.user.id).eq('chats.type', 'private');
+    if (myChats?.length) {
+      const chatIds = myChats.map(m => m.chat_id);
+      const { data: theirMem } = await sb.from('chat_members').select('chat_id').eq('user_id', otherId).in('chat_id', chatIds);
+      if (theirMem?.length) {
+        await loadChats();
+        state.activeSection = 'chats'; renderBottomNav(); renderNavRail(); renderSidebarContent();
+        openChat(theirMem[0].chat_id);
+        return;
+      }
+    }
+    const { data: chat, error } = await sb.from('chats').insert({ type: 'private', created_by: state.user.id }).select().single();
+    if (error) throw error;
+    const { error: memErr } = await sb.from('chat_members').insert([
+      { chat_id: chat.id, user_id: state.user.id, role: 'owner' },
+      { chat_id: chat.id, user_id: otherId, role: 'member' }
+    ]);
+    if (memErr) { await sb.from('chats').delete().eq('id', chat.id); throw memErr; }
+    await loadChats();
+    state.activeSection = 'chats'; renderBottomNav(); renderNavRail(); renderSidebarContent();
+    openChat(chat.id);
+  } catch (e) { console.error('startPrivateChat:', e); toast('فشل بدء المحادثة: ' + e.message, 'error'); }
+}
+
+// ============================================================
+//  LOGOUT
+// ============================================================
+async function doLogout() {
+  if (!confirm('تسجيل الخروج؟')) return;
+  await endCall(true);
+  await signOut();
+  renderAuth();
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', boot);
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 768) {
+    $('#sidebar')?.classList.remove('hidden-mobile');
+    if (state.activeChat) $('#chat-window')?.classList.remove('hidden');
+  }
+  renderNavRail();
+});
+
+// Clean up on unload
+window.addEventListener('beforeunload', () => {
+  if (state.currentCall) endCall(true);
+});
+</script>
+</body>
+</html>
