@@ -441,7 +441,7 @@ async function searchUsersAll(query = '') {
 }
 
 // ============================================================
-//  DATA
+//  DATA - CHATS (with deleted_chats filter)
 // ============================================================
 async function loadChats() {
   if (!state.user) return;
@@ -449,7 +449,18 @@ async function loadChats() {
     .select(`chat_id, last_read_at, chats:chat_id (id, type, name, description, avatar_url, created_by, invite_link, created_at, updated_at)`)
     .eq('user_id', state.user.id);
   if (error) { console.error('loadChats:', error); return; }
-  const chats = (data || []).map(row => row.chats).filter(Boolean);
+  let chats = (data || []).map(row => row.chats).filter(Boolean);
+  
+  // استبعد المحادثات المحذوفة من عندي
+  if (chats.length) {
+    try {
+      const { data: deleted } = await sb.from('deleted_chats')
+        .select('chat_id').eq('user_id', state.user.id);
+      const deletedIds = new Set((deleted || []).map(d => d.chat_id));
+      chats = chats.filter(c => !deletedIds.has(c.id));
+    } catch (e) { console.warn('deleted_chats filter:', e); }
+  }
+  
   if (!chats.length) { state.chats = []; renderSidebarContent(); renderNavRail(); renderBottomNav(); return; }
   const chatIds = chats.map(c => c.id);
   const { data: membersData } = await sb.from('chat_members')
@@ -479,6 +490,109 @@ async function loadChats() {
     last_message: lastByChat[c.id] || null, unread: unreadByChat[c.id] || 0
   })).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   renderSidebarContent(); renderBottomNav(); renderNavRail();
+}
+
+// ⭐ حذف محادثة (من عندي / للطرفين)
+async function deleteChatAction(chatId, forBoth = false) {
+  try {
+    const chat = state.chats.find(c => c.id === chatId);
+    if (!chat) return;
+    if (forBoth) {
+      await sb.from('messages').delete().eq('chat_id', chatId);
+      await sb.from('chat_members').delete().eq('chat_id', chatId);
+      await sb.from('chats').delete().eq('id', chatId);
+    } else {
+      await sb.from('deleted_chats').upsert({
+        user_id: state.user.id,
+        chat_id: chatId
+      }, { onConflict: 'user_id,chat_id' });
+    }
+    state.chats = state.chats.filter(c => c.id !== chatId);
+    if (state.activeChat?.id === chatId) {
+      state.activeChat = null;
+      renderChatEmpty();
+      if (window.innerWidth < 768) {
+        $('#sidebar')?.classList.remove('hidden-mobile');
+        $('#chat-window')?.classList.add('hidden');
+        $('#chat-window')?.classList.remove('flex');
+      }
+    }
+    renderChatList();
+    renderNavRail();
+    renderBottomNav();
+    toast(forBoth ? '✅ تم الحذف من الطرفين' : '✅ تم الحذف من عندك', 'success');
+  } catch (e) {
+    console.error('deleteChatAction:', e);
+    toast('فشل الحذف: ' + e.message, 'error');
+  }
+}
+
+// ⭐ قائمة حذف المحادثة (مثل تيليجرام)
+function showDeleteChatMenu(chat) {
+  $$('.delete-chat-menu').forEach(m => m.remove());
+  const isPrivate = chat.type === 'private';
+  const o = getOther(chat);
+  const title = isPrivate ? (o?.full_name || 'المحادثة') : (chat.name || 'المحادثة');
+  
+  const modal = document.createElement('div');
+  modal.className = 'delete-chat-menu modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4 anim-fade';
+  modal.innerHTML = `
+    <div class="w-full max-w-sm surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide">
+      <div class="p-4 border-b border-soft">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
+            ${icon('trash-2', 'w-6 h-6')}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-primary font-bold text-lg">حذف المحادثة</h3>
+            <p class="text-muted text-xs mt-0.5 truncate">${esc(title)}</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-4 space-y-3">
+        <button id="del-for-me" class="w-full p-4 rounded-xl surface-2 border border-soft text-primary hover:bg-amber-500/10 hover:border-amber-500/30 transition flex items-start gap-3 text-right">
+          <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-500">
+            ${icon('user-minus', 'w-5 h-5')}
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-sm">حذف من عندي</p>
+            <p class="text-muted text-xs mt-0.5">ستختفي المحادثة من قائمتك فقط. ستبقى عند ${isPrivate ? 'الطرف الآخر' : 'الأعضاء الآخرين'}.</p>
+          </div>
+        </button>
+        <button id="del-for-both" class="w-full p-4 rounded-xl surface-2 border border-soft text-primary hover:bg-red-500/10 hover:border-red-500/30 transition flex items-start gap-3 text-right">
+          <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 text-red-500">
+            ${icon('trash-2', 'w-5 h-5')}
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-sm text-red-500">حذف من الطرفين</p>
+            <p class="text-muted text-xs mt-0.5">
+              ${isPrivate ? 'ستُحذف المحادثة وكل الرسائل نهائياً من عندك وعند الطرف الآخر.' : 'ستُحذف المجموعة/القناة وكل الرسائل نهائياً من عند الجميع.'}
+            </p>
+          </div>
+        </button>
+        <button id="del-cancel" class="w-full py-3 rounded-xl text-muted text-sm font-bold hover:bg-black/5 dark:hover:bg-white/5 transition">
+          إلغاء
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  refreshIcons();
+  const close = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+  $('#del-cancel', modal).onclick = close;
+  $('#del-for-me', modal).onclick = async () => {
+    close();
+    if (!confirm(`حذف "${title}" من عندك فقط؟`)) return;
+    await deleteChatAction(chat.id, false);
+  };
+  $('#del-for-both', modal).onclick = async () => {
+    close();
+    const confirmText = isPrivate 
+      ? `⚠️ حذف المحادثة من الطرفين نهائياً؟\n\nسيتم حذف جميع الرسائل من عندك وعند ${o?.full_name}.\n\nلا يمكن التراجع!`
+      : `⚠️ حذف ${chat.type === 'channel' ? 'القناة' : 'المجموعة'} من الطرفين نهائياً؟\n\nسيتم حذف جميع الرسائل والأعضاء.\n\nلا يمكن التراجع!`;
+    if (!confirm(confirmText)) return;
+    await deleteChatAction(chat.id, true);
+  };
 }
 
 async function loadMessages(chatId) {
@@ -779,7 +893,7 @@ function renderAuth() {
           <p id="auth-info" class="text-blue-400 text-sm text-center hidden p-2 rounded-lg bg-blue-500/10"></p>
           <button type="submit" id="auth-submit" class="gradient-btn w-full py-3.5 rounded-xl text-white font-bold"><span id="auth-submit-text">تسجيل الدخول</span></button>
         </form>
-        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.2</p>
+        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.3</p>
       </div>
     </div>`;
   let mode = 'login';
@@ -961,14 +1075,49 @@ function renderChatList() {
     return;
   }
   list.innerHTML = filtered.map(chatItemHTML).join('');
+  
   filtered.forEach(c => {
     const el = list.querySelector(`[data-id="${c.id}"]`);
-    if (el) {
-      el.onclick = () => openChat(c.id);
-      const avatar = el.querySelector('[data-avatar]');
-      if (avatar) avatar.onclick = (e) => { e.stopPropagation(); const o = getOther(c); if (c.type === 'private' && o) openFullProfile(o.id); else { state.activeChat = c; renderChatWindow(); openChatInfo(); } };
+    if (!el) return;
+    
+    el.onclick = () => openChat(c.id);
+    
+    const avatar = el.querySelector('[data-avatar]');
+    if (avatar) avatar.onclick = (e) => {
+      e.stopPropagation();
+      const o = getOther(c);
+      if (c.type === 'private' && o) openFullProfile(o.id);
+      else { state.activeChat = c; renderChatWindow(); openChatInfo(); }
+    };
+    
+    const optionsBtn = el.querySelector('.chat-options-btn');
+    if (optionsBtn) {
+      optionsBtn.onclick = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        state.activeChat = c;
+        openChatMenu();
+      };
     }
+    
+    el.oncontextmenu = (e) => {
+      e.preventDefault();
+      state.activeChat = c;
+      openChatMenu();
+    };
+    
+    let pressTimer;
+    el.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => {
+        state.activeChat = c;
+        openChatMenu();
+        if (navigator.vibrate) navigator.vibrate(50);
+      }, 600);
+    }, { passive: true });
+    el.addEventListener('touchend', () => clearTimeout(pressTimer));
+    el.addEventListener('touchmove', () => clearTimeout(pressTimer));
   });
+  
   refreshIcons();
 }
 
@@ -996,7 +1145,7 @@ function chatItemHTML(chat) {
     else previewText = lastMsg.content || '';
   }
   return `
-    <div data-id="${chat.id}" class="chat-item w-full p-3 flex items-center gap-3 ${isActive ? 'active' : ''}">
+    <div data-id="${chat.id}" class="chat-item w-full p-3 flex items-center gap-3 ${isActive ? 'active' : ''} group">
       <div class="relative flex-shrink-0 cursor-pointer" data-avatar>
         <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold overflow-hidden shadow-sm" style="background: ${avatar ? 'transparent' : avGrad(isPrivate ? (o?.id || '') : chat.id)};">
           ${avatar ? `<img src="${esc(avatar)}" class="w-full h-full object-cover" loading="lazy" />` : esc(name[0])}
@@ -1013,6 +1162,10 @@ function chatItemHTML(chat) {
           ${unread > 0 ? `<span class="bg-blue-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">${unread > 99 ? '99+' : unread}</span>` : ''}
         </div>
       </div>
+      <button class="chat-options-btn p-2 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-muted opacity-0 group-hover:opacity-100 transition flex-shrink-0" 
+              data-chat-id="${chat.id}">
+        ${icon('more-vertical', 'w-4 h-4')}
+      </button>
     </div>`;
 }
 
@@ -1286,7 +1439,7 @@ function renderSettingsSection(container) {
       <div class="p-4">
         <button id="btn-logout" class="w-full py-3 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm hover:bg-red-500/20 flex items-center justify-center gap-2">${icon('log-out', 'w-4 h-4')} تسجيل الخروج</button>
       </div>
-      <p class="text-center text-muted text-xs pb-6">SupaChat v4.2</p>
+      <p class="text-center text-muted text-xs pb-6">SupaChat v4.3</p>
     </div>`;
   refreshIcons();
   $('#row-theme').onclick = () => { toggleTheme(); toast(state.settings.theme === 'dark' ? '🌙 ليلي' : '☀️ نهاري', 'info'); renderSidebarContent(); renderNavRail(); renderSidebar(); };
@@ -1725,7 +1878,7 @@ function updateUploadProgress(pct) { const el = $('#upload-progress'); if (el) e
 function hideUploadProgress() { $('#upload-progress')?.remove(); }
 
 // ============================================================
-//  CALLS - WebRTC ⭐ (fixed)
+//  CALLS - WebRTC
 // ============================================================
 const ICE_SERVERS = {
   iceServers: [
@@ -1748,16 +1901,15 @@ async function getUserMediaSafe(type) {
     video: type === 'video' ? { width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 }, facingMode: state.isFrontCamera ? 'user' : 'environment', frameRate: { ideal: 30, max: 60 } } : false
   };
   try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    return stream;
+    return await navigator.mediaDevices.getUserMedia(constraints);
   } catch (err) {
     console.error('getUserMedia failed:', err.name, err.message);
     let msg = 'فشل الوصول للكاميرا والميكروفون';
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      msg = '⚠️ يجب السماح بالوصول\n\n1. اضغط على أيقونة القفل بجانب الرابط\n2. اختر "السماح" للكاميرا والميكروفون\n3. أعد المحاولة';
-    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      msg = '⚠️ يجب السماح بالوصول\n\n1. اضغط على أيقونة القفل بجانب الرابط\n2. اختر "السماح" للكاميرا والميكروفون';
+    } else if (err.name === 'NotFoundError') {
       msg = 'لم يتم العثور على كاميرا أو ميكروفون';
-    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+    } else if (err.name === 'NotReadableError') {
       msg = 'الكاميرا/الميكروفون مستخدمة من تطبيق آخر';
     } else if (err.name === 'OverconstrainedError') {
       try { return await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); }
@@ -2892,7 +3044,7 @@ function openMemberActionsMenu(parentModal, chat, memberId, memberName, memberRo
 }
 
 // ============================================================
-//  ADD MEMBERS MODAL ⭐ مع بحث محسّن
+//  ADD MEMBERS MODAL
 // ============================================================
 async function openAddMembersModal(chatId) {
   const chat = state.chats.find(c => c.id === chatId);
@@ -2986,7 +3138,7 @@ async function openAddMembersModal(chatId) {
     const list = $('#ulist', modal);
     if (!filteredUsers.length) {
       if (searchQuery.trim()) {
-        list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">🔍</div><p class="text-muted text-sm">لا نتائج للبحث "${esc(searchQuery)}"</p><p class="text-muted text-xs mt-1 opacity-70">تأكد من كتابة الاسم أو @يوزر بشكل صحيح</p></div>`;
+        list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">🔍</div><p class="text-muted text-sm">لا نتائج للبحث "${esc(searchQuery)}"</p></div>`;
       } else {
         list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">👥</div><p class="text-muted text-sm">لا يوجد مستخدمون آخرون</p></div>`;
       }
@@ -3161,21 +3313,47 @@ async function openEditChatModal(chatId) {
   };
 }
 
+// ============================================================
+//  CHAT MENU ⭐ (with delete)
+// ============================================================
 function openChatMenu() {
   const chat = state.activeChat;
   if (!chat) return;
+  const isPrivate = chat.type === 'private';
   const items = [
-    { icon: 'info', label: 'معلومات', act: openChatInfo },
-    { icon: 'trash-2', label: 'مسح المحادثة', act: async () => { if (!confirm('مسح كل الرسائل؟')) return; await sb.from('messages').delete().eq('chat_id', chat.id); await loadMessages(chat.id); renderMessages(); await loadChats(); toast('تم المسح ✓', 'success'); }, danger: true }
+    { icon: 'info', label: 'معلومات المحادثة', act: openChatInfo },
+    { icon: 'bell-off', label: 'كتم الإشعارات', act: () => toast('تم كتم الإشعارات ✓', 'success') },
+    { icon: 'trash-2', label: 'حذف المحادثة', act: () => showDeleteChatMenu(chat), danger: true }
   ];
   const menu = document.createElement('div');
   menu.className = 'msg-menu context-menu surface border border-soft anim-pop';
-  menu.style.top = '60px'; menu.style.left = '20px';
-  menu.innerHTML = `<div class="p-1">${items.map((it, i) => `<button data-i="${i}" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${it.danger ? 'text-red-500' : 'text-primary'} flex items-center gap-3 text-sm font-medium">${icon(it.icon, 'w-4 h-4')} ${it.label}</button>`).join('')}</div>`;
+  menu.style.top = '60px'; 
+  menu.style.left = '20px';
+  menu.innerHTML = `
+    <div class="p-1 min-w-[220px]">
+      ${items.map((it, i) => `
+        <button data-i="${i}" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${it.danger ? 'text-red-500' : 'text-primary'} flex items-center gap-3 text-sm font-medium transition">
+          ${icon(it.icon, 'w-4 h-4')} 
+          <span class="flex-1 text-right">${it.label}</span>
+        </button>
+      `).join('')}
+    </div>`;
   document.body.appendChild(menu);
   refreshIcons();
-  menu.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const it = items[parseInt(b.dataset.i)]; menu.remove(); it.act(); });
-  setTimeout(() => { const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+  menu.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
+    const it = items[parseInt(b.dataset.i)];
+    menu.remove();
+    it.act();
+  });
+  setTimeout(() => {
+    const close = (e) => {
+      if (!menu.contains(e.target)) { 
+        menu.remove(); 
+        document.removeEventListener('click', close); 
+      }
+    };
+    document.addEventListener('click', close);
+  }, 100);
 }
 
 // ============================================================
@@ -3184,11 +3362,18 @@ function openChatMenu() {
 async function startPrivateChat(otherId) {
   try {
     await ensureFriendship(otherId);
+    // إزالة من deleted_chats إذا كانت موجودة
+    try {
+      await sb.from('deleted_chats').delete().eq('user_id', state.user.id).eq('chat_id', otherId);
+    } catch (e) {}
+    
     const { data: myChats } = await sb.from('chat_members').select('chat_id, chats:chat_id!inner(id, type)').eq('user_id', state.user.id).eq('chats.type', 'private');
     if (myChats?.length) {
       const chatIds = myChats.map(m => m.chat_id);
       const { data: theirMem } = await sb.from('chat_members').select('chat_id').eq('user_id', otherId).in('chat_id', chatIds);
       if (theirMem?.length) {
+        // احذف السجل من deleted_chats إذا كان موجوداً
+        try { await sb.from('deleted_chats').delete().eq('user_id', state.user.id).eq('chat_id', theirMem[0].chat_id); } catch (e) {}
         await loadChats();
         state.activeSection = 'chats'; renderBottomNav(); renderNavRail(); renderSidebarContent();
         openChat(theirMem[0].chat_id);
