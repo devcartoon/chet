@@ -559,7 +559,7 @@ async function uploadFile(file, bucket = 'chat-media') {
 }
 
 // ============================================================
-//  STATUSES + REACTIONS
+//  STATUSES
 // ============================================================
 async function loadAllActiveStatuses() {
   const now = new Date().toISOString();
@@ -590,10 +590,6 @@ async function loadStatusViews() {
     map[v.status_id].add(v.viewer_id);
   });
   return map;
-}
-async function loadStatusReactions(statusId) {
-  const { data } = await sb.from('status_reactions').select('*').eq('status_id', statusId);
-  return data || [];
 }
 async function addStatusReaction(statusId, emoji) {
   try {
@@ -783,7 +779,7 @@ function renderAuth() {
           <p id="auth-info" class="text-blue-400 text-sm text-center hidden p-2 rounded-lg bg-blue-500/10"></p>
           <button type="submit" id="auth-submit" class="gradient-btn w-full py-3.5 rounded-xl text-white font-bold"><span id="auth-submit-text">تسجيل الدخول</span></button>
         </form>
-        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.1</p>
+        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.2</p>
       </div>
     </div>`;
   let mode = 'login';
@@ -1021,7 +1017,7 @@ function chatItemHTML(chat) {
 }
 
 // ============================================================
-//  STORIES ⭐ مع زر حذف
+//  STORIES
 // ============================================================
 async function renderStoriesSection(container) {
   container.innerHTML = `
@@ -1290,7 +1286,7 @@ function renderSettingsSection(container) {
       <div class="p-4">
         <button id="btn-logout" class="w-full py-3 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm hover:bg-red-500/20 flex items-center justify-center gap-2">${icon('log-out', 'w-4 h-4')} تسجيل الخروج</button>
       </div>
-      <p class="text-center text-muted text-xs pb-6">SupaChat v4.1</p>
+      <p class="text-center text-muted text-xs pb-6">SupaChat v4.2</p>
     </div>`;
   refreshIcons();
   $('#row-theme').onclick = () => { toggleTheme(); toast(state.settings.theme === 'dark' ? '🌙 ليلي' : '☀️ نهاري', 'info'); renderSidebarContent(); renderNavRail(); renderSidebar(); };
@@ -1729,7 +1725,7 @@ function updateUploadProgress(pct) { const el = $('#upload-progress'); if (el) e
 function hideUploadProgress() { $('#upload-progress')?.remove(); }
 
 // ============================================================
-//  CALLS - WebRTC
+//  CALLS - WebRTC ⭐ (fixed)
 // ============================================================
 const ICE_SERVERS = {
   iceServers: [
@@ -1737,24 +1733,37 @@ const ICE_SERVERS = {
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
   ]
 };
 
 async function getUserMediaSafe(type) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('متصفحك لا يدعم الوصول للكاميرا والميكروفون');
+  }
+  const constraints = {
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 },
+    video: type === 'video' ? { width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 }, facingMode: state.isFrontCamera ? 'user' : 'environment', frameRate: { ideal: 30, max: 60 } } : false
+  };
   try {
-    const constraints = {
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 },
-      video: type === 'video' ? { width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 }, facingMode: state.isFrontCamera ? 'user' : 'environment', frameRate: { ideal: 30, max: 60 } } : false
-    };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     return stream;
   } catch (err) {
-    console.error('getUserMedia failed:', err);
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') throw new Error('يرجى السماح بالوصول للكاميرا والميكروفون من إعدادات المتصفح');
-    if (err.name === 'NotFoundError') throw new Error('لم يتم العثور على كاميرا أو ميكروفون');
-    if (err.name === 'NotReadableError') throw new Error('الكاميرا/الميكروفون مستخدمة من تطبيق آخر');
-    throw new Error('فشل الوصول: ' + err.message);
+    console.error('getUserMedia failed:', err.name, err.message);
+    let msg = 'فشل الوصول للكاميرا والميكروفون';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg = '⚠️ يجب السماح بالوصول\n\n1. اضغط على أيقونة القفل بجانب الرابط\n2. اختر "السماح" للكاميرا والميكروفون\n3. أعد المحاولة';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      msg = 'لم يتم العثور على كاميرا أو ميكروفون';
+    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      msg = 'الكاميرا/الميكروفون مستخدمة من تطبيق آخر';
+    } else if (err.name === 'OverconstrainedError') {
+      try { return await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); }
+      catch (e2) { msg = 'جودة الكاميرا غير مدعومة'; }
+    }
+    throw new Error(msg);
   }
 }
 
@@ -1783,6 +1792,24 @@ async function startWebRTC(callRec, other, type, isCaller) {
       if (!state.remoteStream.getTracks().some(t => t.id === event.track.id)) state.remoteStream.addTrack(event.track);
       attachRemoteStream();
     };
+    state.peerConnection.oniceconnectionstatechange = () => {
+      const st = state.peerConnection?.iceConnectionState;
+      if (st === 'connected' || st === 'completed') {
+        state.callConnected = true;
+        const statusEl = $('#call-status-text');
+        if (statusEl) statusEl.textContent = 'متصل';
+        startCallTimer();
+      }
+    };
+    state.peerConnection.onconnectionstatechange = () => {
+      const st = state.peerConnection?.connectionState;
+      if (st === 'connected') {
+        state.callConnected = true;
+        const statusEl = $('#call-status-text');
+        if (statusEl) statusEl.textContent = 'متصل';
+        startCallTimer();
+      }
+    };
     state.peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
         const field = isCaller ? 'caller_ice' : 'receiver_ice';
@@ -1793,18 +1820,9 @@ async function startWebRTC(callRec, other, type, isCaller) {
         } catch (e) { console.warn('ICE save:', e); }
       }
     };
-    state.peerConnection.onconnectionstatechange = () => {
-      const st = state.peerConnection?.connectionState;
-      const statusEl = $('#call-status-text');
-      if (st === 'connected') {
-        state.callConnected = true;
-        if (statusEl) statusEl.textContent = 'متصل';
-        startCallTimer();
-      } else if (st === 'failed') { toast('فشل الاتصال', 'error'); }
-    };
     subscribeToCallUpdates(callRec.id, isCaller);
     if (isCaller) {
-      const offer = await state.peerConnection.createOffer();
+      const offer = await state.peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: type === 'video' });
       await state.peerConnection.setLocalDescription(offer);
       await sb.from('calls').update({ offer: offer }).eq('id', callRec.id);
     }
@@ -1816,6 +1834,7 @@ async function startWebRTC(callRec, other, type, isCaller) {
 }
 
 function attachRemoteStream() {
+  if (!state.remoteStream) return;
   const remoteVideo = $('#call-remote-video');
   if (remoteVideo && remoteVideo.srcObject !== state.remoteStream) { remoteVideo.srcObject = state.remoteStream; remoteVideo.play().catch(() => {}); }
   const remoteVideoSmall = $('#call-remote-video-small');
@@ -1828,7 +1847,8 @@ function subscribeToCallUpdates(callId, isCaller) {
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls', filter: `id=eq.${callId}` }, async (payload) => {
       const call = payload.new;
       if (call.ended_at && state.currentCall?.id === call.id) { endCall(true); return; }
-      if (isCaller && call.answer && state.peerConnection && !state.peerConnection.currentRemoteDescription) {
+      if (!state.peerConnection) return;
+      if (isCaller && call.answer && !state.peerConnection.currentRemoteDescription) {
         try {
           await state.peerConnection.setRemoteDescription(new RTCSessionDescription(call.answer));
           const receiverIce = call.receiver_ice || [];
@@ -1836,7 +1856,7 @@ function subscribeToCallUpdates(callId, isCaller) {
           state.iceAddedCount = receiverIce.length;
         } catch (e) { console.warn('setRemote answer:', e); }
       }
-      if (!isCaller && call.offer && state.peerConnection && !state.peerConnection.currentRemoteDescription) {
+      if (!isCaller && call.offer && !state.peerConnection.currentRemoteDescription) {
         try {
           await state.peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
           const answer = await state.peerConnection.createAnswer();
@@ -1847,9 +1867,9 @@ function subscribeToCallUpdates(callId, isCaller) {
           state.iceAddedCount = callerIce.length;
         } catch (e) { console.warn('answer error:', e); }
       }
-      if (state.peerConnection) {
+      if (state.peerConnection && state.peerConnection.currentRemoteDescription) {
         const remoteIce = isCaller ? (call.receiver_ice || []) : (call.caller_ice || []);
-        for (let i = state.iceAddedCount; i < remoteIce.length; i++) {
+        for (let i = state.iceAddedCount || 0; i < remoteIce.length; i++) {
           try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(remoteIce[i])); } catch (e) {}
         }
         state.iceAddedCount = remoteIce.length;
@@ -1868,6 +1888,8 @@ function startCallTimer() {
 }
 
 function showCallScreen(other, type, isCaller) {
+  const existing = $('#call-screen');
+  if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.className = 'call-screen';
   overlay.id = 'call-screen';
@@ -1896,7 +1918,7 @@ function showCallScreen(other, type, isCaller) {
       <div class="call-audio-view">
         <div class="call-avatar-big" style="background: ${other.avatar_url ? 'transparent' : avGrad(other.id)};">
           ${other.avatar_url ? `<img src="${esc(other.avatar_url)}" class="w-full h-full object-cover" />` : esc(other.full_name[0])}
-          <video id="call-remote-video-small" autoplay playsinline class="hidden"></video>
+          <video id="call-remote-video-small" autoplay playsinline style="display:none;"></video>
         </div>
         <div class="text-center">
           <h2 class="text-2xl font-bold">${esc(other.full_name)}</h2>
@@ -1923,26 +1945,24 @@ function showCallScreen(other, type, isCaller) {
   refreshIcons();
   setTimeout(() => {
     const localVideo = $('#call-local-video');
-    if (localVideo && state.localStream) localVideo.srcObject = state.localStream;
-    const remoteVideo = $('#call-remote-video');
-    if (remoteVideo && state.remoteStream) { remoteVideo.srcObject = state.remoteStream; remoteVideo.play().catch(() => {}); }
-    const remoteVideoSmall = $('#call-remote-video-small');
-    if (remoteVideoSmall && state.remoteStream) { remoteVideoSmall.srcObject = state.remoteStream; remoteVideoSmall.play().catch(() => {}); }
+    if (localVideo && state.localStream) { localVideo.srcObject = state.localStream; localVideo.play().catch(() => {}); }
+    attachRemoteStream();
   }, 100);
   $('#btn-end-call').onclick = () => endCall();
   $('#call-minimize').onclick = () => { overlay.style.display = 'none'; toast('المكالمة مستمرة في الخلفية', 'info'); };
   const btnMute = $('#btn-mute');
   btnMute.onclick = () => {
-    if (!state.localStream) return;
-    const audioTrack = state.localStream.getAudioTracks()[0];
-    if (!audioTrack) return toast('لا يوجد ميكروفون', 'warning');
-    audioTrack.enabled = !audioTrack.enabled;
-    state.isMuted = !audioTrack.enabled;
+    if (!state.localStream) return toast('لا يوجد صوت', 'warning');
+    const audioTracks = state.localStream.getAudioTracks();
+    if (!audioTracks.length) return toast('لا يوجد ميكروفون', 'warning');
+    const newState = !audioTracks[0].enabled;
+    audioTracks.forEach(t => t.enabled = newState);
+    state.isMuted = !newState;
     btnMute.classList.toggle('active', state.isMuted);
     btnMute.querySelector('.call-btn-icon').innerHTML = state.isMuted ? icon('mic-off', 'w-5 h-5') : icon('mic', 'w-5 h-5');
     btnMute.querySelector('.call-btn-label').textContent = state.isMuted ? 'مكتوم' : 'كتم';
     refreshIcons();
-    toast(state.isMuted ? '🔇 تم الكتم' : '🎤 الصوت مفتوح', 'info', 1200);
+    toast(state.isMuted ? '🔇 تم الكتم' : '🎤 الصوت مفتوح', 'success', 1500);
   };
   const btnSpeaker = $('#btn-speaker');
   btnSpeaker.onclick = async () => {
@@ -1956,25 +1976,29 @@ function showCallScreen(other, type, isCaller) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
         if (state.isSpeakerOn && audioOutputs.length > 1) {
-          const speaker = audioOutputs.find(d => /speaker|default/i.test(d.label)) || audioOutputs[0];
+          const speaker = audioOutputs.find(d => /speaker/i.test(d.label)) || audioOutputs[audioOutputs.length - 1];
           await remoteVideo.setSinkId(speaker.deviceId);
-        } else { await remoteVideo.setSinkId(''); }
+        } else if (audioOutputs.length > 0) {
+          await remoteVideo.setSinkId(audioOutputs[0].deviceId);
+        }
       } catch (e) { console.warn('setSinkId:', e); }
     }
-    toast(state.isSpeakerOn ? '🔊 السماعة' : '📱 سماعة الأذن', 'info', 1200);
+    toast(state.isSpeakerOn ? '🔊 مكبر الصوت' : '📱 سماعة الأذن', 'info', 1200);
   };
   const btnCam = $('#btn-camera-off');
   if (btnCam) {
     btnCam.onclick = () => {
       if (!state.localStream) return;
-      const videoTrack = state.localStream.getVideoTracks()[0];
-      if (!videoTrack) return;
-      videoTrack.enabled = !videoTrack.enabled;
-      state.isVideoEnabled = videoTrack.enabled;
+      const videoTracks = state.localStream.getVideoTracks();
+      if (!videoTracks.length) return;
+      const newState = !videoTracks[0].enabled;
+      videoTracks.forEach(t => t.enabled = newState);
+      state.isVideoEnabled = newState;
       btnCam.classList.toggle('active', !state.isVideoEnabled);
       btnCam.querySelector('.call-btn-icon').innerHTML = state.isVideoEnabled ? icon('video', 'w-5 h-5') : icon('video-off', 'w-5 h-5');
       btnCam.querySelector('.call-btn-label').textContent = state.isVideoEnabled ? 'كاميرا' : 'موقوفة';
       refreshIcons();
+      toast(state.isVideoEnabled ? '📹 الكاميرا مفتوحة' : '🚫 الكاميرا موقوفة', 'info', 1200);
     };
   }
   const btnFlip = $('#call-cam-flip');
@@ -1983,18 +2007,18 @@ function showCallScreen(other, type, isCaller) {
       if (!state.localStream) return;
       try {
         state.isFrontCamera = !state.isFrontCamera;
-        const oldVideoTrack = state.localStream.getVideoTracks()[0];
         const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: state.isFrontCamera ? 'user' : 'environment' }, audio: false });
         const newVideoTrack = newStream.getVideoTracks()[0];
         if (state.peerConnection) {
           const sender = state.peerConnection.getSenders().find(s => s.track?.kind === 'video');
           if (sender) await sender.replaceTrack(newVideoTrack);
         }
+        const oldVideoTrack = state.localStream.getVideoTracks()[0];
         if (oldVideoTrack) { oldVideoTrack.stop(); state.localStream.removeTrack(oldVideoTrack); }
         state.localStream.addTrack(newVideoTrack);
         const localVideo = $('#call-local-video');
         if (localVideo) { localVideo.srcObject = state.localStream; localVideo.play().catch(() => {}); }
-        toast('تم تبديل الكاميرا ✓', 'success', 1200);
+        toast('🔄 تم تبديل الكاميرا', 'success', 1200);
       } catch (e) { console.warn('flip:', e); toast('لا يمكن تبديل الكاميرا', 'warning'); }
     };
   }
@@ -2013,10 +2037,13 @@ function showCallScreen(other, type, isCaller) {
           const vt = newStream.getVideoTracks()[0];
           state.peerConnection.addTrack(vt, newStream);
           state.localStream.addTrack(vt);
+          const offer = await state.peerConnection.createOffer();
+          await state.peerConnection.setLocalDescription(offer);
+          await sb.from('calls').update({ offer }).eq('id', state.currentCall.id);
           btnVideoEnable.classList.add('active');
-          toast('تم تفعيل الفيديو ✓', 'success');
+          toast('📹 تم تفعيل الفيديو', 'success');
         }
-      } catch (e) { toast('فشل تفعيل الفيديو: ' + e.message, 'error'); }
+      } catch (e) { console.error(e); toast('فشل تفعيل الفيديو: ' + e.message, 'error'); }
     };
   }
 }
@@ -2454,7 +2481,7 @@ async function openAddStatusModal() {
 }
 
 // ============================================================
-//  STORY VIEWER ⭐ مع حذف الحالات
+//  STORY VIEWER
 // ============================================================
 async function openStoryViewer(userId) {
   const now = new Date().toISOString();
@@ -2485,7 +2512,7 @@ async function openStoryViewer(userId) {
           <p class="text-xs opacity-70" id="story-time"></p>
         </div>
         <button id="pause-story" class="p-2 flex-shrink-0">${icon('pause', 'w-5 h-5')}</button>
-        ${isMe ? `<button id="delete-status-btn" class="p-2 flex-shrink-0 text-red-400 hover:text-red-300" title="حذف الحالة">${icon('trash-2', 'w-5 h-5')}</button>` : ''}
+        ${isMe ? `<button id="delete-status-btn" class="p-2 flex-shrink-0 text-red-400 hover:text-red-300">${icon('trash-2', 'w-5 h-5')}</button>` : ''}
         <button id="close-story" class="p-2 flex-shrink-0">${icon('x', 'w-6 h-6')}</button>
       </div>
       
@@ -2577,7 +2604,6 @@ async function openStoryViewer(userId) {
   $('#prev-story', viewer).onclick = () => show(idx - 1);
   viewer.querySelectorAll('[data-avatar-open]').forEach(el => el.onclick = () => { close(); openFullProfile(userId); });
   
-  // حذف الحالة
   const delBtn = $('#delete-status-btn', viewer);
   if (delBtn) {
     delBtn.onclick = async (e) => {
@@ -2645,7 +2671,7 @@ async function openStoryViewer(userId) {
 }
 
 // ============================================================
-//  CHAT INFO ⭐ إدارة المجموعات الكاملة
+//  CHAT INFO
 // ============================================================
 async function openChatInfo() {
   const chat = state.activeChat;
@@ -2653,7 +2679,6 @@ async function openChatInfo() {
   const isPrivate = chat.type === 'private';
   const o = getOther(chat);
   if (isPrivate && o) return openFullProfile(o.id);
-
   const myMembership = chat.members?.find(m => m.id === state.user.id);
   const myRole = myMembership?.role || 'member';
   const isOwner = myRole === 'owner';
@@ -2697,8 +2722,8 @@ async function openChatInfo() {
         </div>
       </div>
       <div class="px-4 pb-3 space-y-2">
-        ${!isChannel ? `<button id="btn-add-member" class="w-full p-3 rounded-xl surface-2 border border-soft text-primary hover:bg-blue-500/10 transition flex items-center gap-3 text-sm font-bold">
-          ${icon('user-plus', 'w-4 h-4 text-blue-500')} إضافة أعضاء
+        ${canManage ? `<button id="btn-add-member" class="w-full p-3.5 rounded-xl gradient-btn text-white font-bold shadow-lg flex items-center justify-center gap-3 text-sm hover:shadow-xl transition">
+          ${icon('user-plus', 'w-5 h-5')} إضافة أعضاء بالبحث عن اسم أو @يوزر
         </button>` : ''}
         ${isOwner ? `<button id="btn-edit-chat" class="w-full p-3 rounded-xl surface-2 border border-soft text-primary hover:bg-purple-500/10 transition flex items-center gap-3 text-sm font-bold">
           ${icon('pencil', 'w-4 h-4 text-purple-500')} تعديل الاسم والوصف والصورة
@@ -2722,8 +2747,8 @@ async function openChatInfo() {
                   <p class="text-muted text-xs">@${esc(m.username || '')}</p>
                 </div>
                 <div class="flex items-center gap-1">
-                  ${m.role === 'owner' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-bold flex-shrink-0">👑</span>` : ''}
-                  ${m.role === 'admin' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 font-bold flex-shrink-0">⭐</span>` : ''}
+                  ${m.role === 'owner' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-bold">👑</span>` : ''}
+                  ${m.role === 'admin' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-500 font-bold">⭐</span>` : ''}
                   ${canManage && !isMe ? `<button class="member-menu-btn p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 text-muted" data-member-id="${m.id}" data-member-name="${esc(m.full_name)}" data-member-role="${m.role}">${icon('more-vertical', 'w-4 h-4')}</button>` : ''}
                 </div>
               </div>`;
@@ -2757,7 +2782,7 @@ async function openChatInfo() {
   $('#btn-add-member', modal)?.addEventListener('click', () => { modal.remove(); openAddMembersModal(chat.id); });
   $('#btn-edit-chat', modal)?.addEventListener('click', () => { modal.remove(); openEditChatModal(chat.id); });
   $('#btn-delete-chat', modal)?.addEventListener('click', async () => {
-    const confirmText = `حذف ${isChannel ? 'القناة' : 'المجموعة'} "${title}" نهائياً؟\n\nسيتم حذف كل شيء نهائياً!\nلا يمكن التراجع!`;
+    const confirmText = `حذف ${isChannel ? 'القناة' : 'المجموعة'} "${title}" نهائياً؟\n\nسيتم حذف كل شيء نهائياً!`;
     if (!confirm(confirmText)) return;
     try {
       await sb.from('chat_members').delete().eq('chat_id', chat.id);
@@ -2866,82 +2891,209 @@ function openMemberActionsMenu(parentModal, chat, memberId, memberName, memberRo
   setTimeout(() => { const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
 }
 
+// ============================================================
+//  ADD MEMBERS MODAL ⭐ مع بحث محسّن
+// ============================================================
 async function openAddMembersModal(chatId) {
   const chat = state.chats.find(c => c.id === chatId);
   if (!chat) return;
   const currentMemberIds = new Set(chat.members?.map(m => m.id) || []);
+  
   const modal = document.createElement('div');
   modal.className = 'modal-overlay fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 anim-fade';
   modal.innerHTML = `
     <div class="w-full max-w-lg surface rounded-2xl shadow-2xl border border-soft overflow-hidden anim-slide max-h-[90vh] flex flex-col">
       <div class="p-4 border-b border-soft flex items-center justify-between flex-shrink-0">
-        <h3 class="text-primary font-bold text-lg">إضافة أعضاء</h3>
+        <div>
+          <h3 class="text-primary font-bold text-lg">إضافة أعضاء</h3>
+          <p class="text-muted text-xs">ابحث بالاسم أو @اسم_المستخدم</p>
+        </div>
         <button data-close class="text-muted hover:text-primary p-1">${icon('x', 'w-5 h-5')}</button>
       </div>
       <div class="p-3 border-b border-soft flex-shrink-0">
         <div class="relative">
           <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted">${icon('search', 'w-4 h-4')}</span>
-          <input id="usearch" type="text" placeholder="ابحث..." class="w-full pr-10 pl-4 py-2.5 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+          <input id="usearch" type="text" placeholder="اكتب اسم أو @يوزر للبحث..." autocomplete="off" class="w-full pr-10 pl-10 py-3 rounded-xl surface-2 border border-soft text-primary placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+          <button id="clear-search" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary hidden">${icon('x', 'w-4 h-4')}</button>
         </div>
+        <div id="search-info" class="text-muted text-xs mt-2 hidden"></div>
       </div>
-      <div id="ulist" class="flex-1 overflow-y-auto px-3 pb-3 min-h-[200px]">
-        <div class="flex items-center justify-center py-8"><div class="w-6 h-6 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>
+      <div id="ulist" class="flex-1 overflow-y-auto px-3 pb-3 min-h-[250px]">
+        <div class="flex items-center justify-center py-8"><div class="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>
       </div>
-      <div class="p-4 border-t border-soft flex-shrink-0">
-        <button id="btn-add" disabled class="w-full py-3 gradient-btn text-white font-bold rounded-xl">إضافة المحددين</button>
+      <div class="p-4 border-t border-soft flex-shrink-0 space-y-2">
+        <div id="selected-count" class="text-center text-xs text-muted hidden"></div>
+        <button id="btn-add" disabled class="w-full py-3 gradient-btn text-white font-bold rounded-xl disabled:opacity-40">
+          <span id="btn-add-text">إضافة المحددين</span>
+        </button>
       </div>
     </div>`;
   document.body.appendChild(modal);
   refreshIcons();
   const selected = new Set();
-  modal.querySelector('[data-close]').onclick = () => modal.remove();
+  let allUsers = [];
+  let filteredUsers = [];
+  let searchQuery = '';
+  const closeBtn = modal.querySelector('[data-close]');
+  closeBtn.onclick = () => modal.remove();
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
-  function renderUsers(users) {
+  
+  async function loadAllUsers() {
+    try {
+      const { data } = await sb.from('profiles')
+        .select('id, username, full_name, avatar_url, is_online, last_seen')
+        .neq('id', state.user.id)
+        .order('full_name');
+      allUsers = data || [];
+      filterUsers('');
+    } catch (e) {
+      console.error('loadAllUsers:', e);
+      $('#ulist', modal).innerHTML = `<p class="text-center text-red-500 text-sm py-8">فشل تحميل المستخدمين</p>`;
+    }
+  }
+  
+  function filterUsers(q) {
+    searchQuery = q;
+    const term = q.trim().toLowerCase();
+    if (!term) {
+      filteredUsers = allUsers;
+    } else {
+      const cleanTerm = term.startsWith('@') ? term.substring(1) : term;
+      filteredUsers = allUsers.filter(u => {
+        const fullName = (u.full_name || '').toLowerCase();
+        const username = (u.username || '').toLowerCase();
+        return fullName.includes(cleanTerm) || username.includes(cleanTerm);
+      });
+    }
+    renderUsers();
+    updateSearchInfo();
+  }
+  
+  function updateSearchInfo() {
+    const info = $('#search-info', modal);
+    const clearBtn = $('#clear-search', modal);
+    if (searchQuery.trim()) {
+      info.textContent = `${filteredUsers.length} نتيجة للبحث "${searchQuery}"`;
+      info.classList.remove('hidden');
+      clearBtn.classList.remove('hidden');
+    } else {
+      info.classList.add('hidden');
+      clearBtn.classList.add('hidden');
+    }
+  }
+  
+  function renderUsers() {
     const list = $('#ulist', modal);
-    const available = users.filter(u => !currentMemberIds.has(u.id));
-    if (!available.length) { list.innerHTML = `<p class="text-center text-muted py-8 text-sm">لا يوجد مستخدمون متاحون</p>`; return; }
-    list.innerHTML = available.map(u => `
-      <button data-uid="${u.id}" class="urow w-full p-3 rounded-xl flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition ${selected.has(u.id) ? 'bg-blue-500/10' : ''}">
-        <div class="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0" style="background: ${u.avatar_url ? 'transparent' : avGrad(u.id)};">
-          ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" class="w-full h-full object-cover" />` : esc(u.full_name[0])}
-        </div>
-        <div class="flex-1 text-right min-w-0"><p class="text-primary font-bold text-sm truncate">${esc(u.full_name)}</p><p class="text-muted text-xs truncate">@${esc(u.username)}</p></div>
-        ${selected.has(u.id) ? `<span class="text-blue-500">${icon('check', 'w-5 h-5')}</span>` : ''}
-      </button>`).join('');
-    list.querySelectorAll('.urow').forEach(row => row.onclick = () => {
+    if (!filteredUsers.length) {
+      if (searchQuery.trim()) {
+        list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">🔍</div><p class="text-muted text-sm">لا نتائج للبحث "${esc(searchQuery)}"</p><p class="text-muted text-xs mt-1 opacity-70">تأكد من كتابة الاسم أو @يوزر بشكل صحيح</p></div>`;
+      } else {
+        list.innerHTML = `<div class="text-center py-12"><div class="text-5xl mb-3 opacity-20">👥</div><p class="text-muted text-sm">لا يوجد مستخدمون آخرون</p></div>`;
+      }
+      return;
+    }
+    list.innerHTML = filteredUsers.map(u => {
+      const alreadyMember = currentMemberIds.has(u.id);
+      const isSelected = selected.has(u.id);
+      return `
+        <button data-uid="${u.id}" class="user-row w-full p-3 rounded-xl flex items-center gap-3 transition mb-1 ${alreadyMember ? 'opacity-40 cursor-not-allowed' : isSelected ? 'bg-blue-500/10 border border-blue-500/30' : 'hover:bg-black/5 dark:hover:bg-white/5 border border-transparent'}">
+          <div class="relative w-11 h-11 rounded-full flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0" style="background: ${u.avatar_url ? 'transparent' : avGrad(u.id)};">
+            ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" class="w-full h-full object-cover" />` : esc((u.full_name || '?')[0])}
+            ${u.is_online ? `<span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-800"></span>` : ''}
+          </div>
+          <div class="flex-1 text-right min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="text-primary font-bold text-sm truncate">${esc(u.full_name)}</p>
+              ${alreadyMember ? `<span class="text-[9px] bg-slate-500/20 text-muted px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">موجود</span>` : ''}
+            </div>
+            <p class="text-muted text-xs truncate">@${esc(u.username)}</p>
+          </div>
+          ${!alreadyMember ? `<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300 dark:border-slate-600'}">${isSelected ? icon('check', 'w-4 h-4 text-white') : ''}</div>` : ''}
+        </button>`;
+    }).join('');
+    list.querySelectorAll('.user-row').forEach(row => {
       const uid = row.dataset.uid;
-      if (selected.has(uid)) selected.delete(uid); else selected.add(uid);
-      updateBtn(); renderUsers(users);
+      if (currentMemberIds.has(uid)) return;
+      row.onclick = () => {
+        if (selected.has(uid)) selected.delete(uid); else selected.add(uid);
+        renderUsers();
+        updateBtn();
+      };
     });
     refreshIcons();
   }
-  function updateBtn() { $('#btn-add', modal).disabled = selected.size === 0; }
-  const search = $('#usearch', modal);
-  const doSearch = debounce(async (q) => {
-    const list = $('#ulist', modal);
-    list.innerHTML = `<div class="flex items-center justify-center py-8"><div class="w-6 h-6 border-4 border-blue-500/30 border-t-blue-500 rounded-full spin"></div></div>`;
-    try { const results = await searchUsersAll(q); renderUsers(results); }
-    catch (e) { list.innerHTML = `<p class="text-center text-red-500 text-sm py-8">فشل البحث</p>`; }
-  }, 250);
-  search.oninput = () => doSearch(search.value);
-  doSearch('');
-  $('#btn-add', modal).onclick = async () => {
+  
+  function updateBtn() {
     const btn = $('#btn-add', modal);
-    btn.disabled = true; btn.textContent = 'جارٍ الإضافة...';
+    const countEl = $('#selected-count', modal);
+    const textEl = $('#btn-add-text', modal);
+    if (selected.size === 0) {
+      btn.disabled = true;
+      countEl.classList.add('hidden');
+      textEl.textContent = 'إضافة المحددين';
+    } else {
+      btn.disabled = false;
+      countEl.textContent = `تم تحديد ${selected.size} ${selected.size === 1 ? 'عضو' : 'أعضاء'}`;
+      countEl.classList.remove('hidden');
+      textEl.textContent = `إضافة ${selected.size} عضو`;
+    }
+  }
+  
+  const searchInput = $('#usearch', modal);
+  let searchTimeout;
+  searchInput.oninput = () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => { filterUsers(searchInput.value); }, 150);
+  };
+  searchInput.focus();
+  
+  $('#clear-search', modal).onclick = () => {
+    searchInput.value = '';
+    filterUsers('');
+    searchInput.focus();
+  };
+  
+  $('#btn-add', modal).onclick = async () => {
+    if (selected.size === 0) return;
+    const btn = $('#btn-add', modal);
+    btn.disabled = true;
+    $('#btn-add-text', modal).textContent = 'جارٍ الإضافة...';
     try {
       const members = [...selected].map(uid => ({ chat_id: chatId, user_id: uid, role: 'member' }));
       const { error } = await sb.from('chat_members').insert(members);
-      if (error) throw error;
-      toast(`✅ تمت إضافة ${selected.size} عضو`, 'success');
+      if (error) {
+        if (error.code === '23505') {
+          let addedCount = 0;
+          for (const member of members) {
+            const { error: singleErr } = await sb.from('chat_members').insert(member);
+            if (!singleErr) addedCount++;
+          }
+          if (addedCount === 0) throw new Error('كل الأعضاء موجودون بالفعل');
+          toast(`✅ تمت إضافة ${addedCount} عضو`, 'success');
+        } else throw error;
+      } else {
+        toast(`✅ تمت إضافة ${selected.size} عضو`, 'success');
+      }
       modal.remove();
       await loadChats();
       const updatedChat = state.chats.find(c => c.id === chatId);
-      if (updatedChat) state.activeChat = updatedChat;
-      if (state.activeChat) renderChatWindow();
-    } catch (e) { console.error(e); toast('فشل الإضافة: ' + e.message, 'error'); btn.disabled = false; btn.textContent = 'إضافة المحددين'; }
+      if (updatedChat) {
+        state.activeChat = updatedChat;
+        if (state.activeChat) { renderChatWindow(); renderChatList(); }
+      }
+    } catch (e) {
+      console.error('add members:', e);
+      toast('فشل الإضافة: ' + (e.message || 'خطأ'), 'error');
+      btn.disabled = false;
+      $('#btn-add-text', modal).textContent = `إضافة ${selected.size} عضو`;
+    }
   };
+  loadAllUsers();
 }
 
+// ============================================================
+//  EDIT CHAT MODAL
+// ============================================================
 async function openEditChatModal(chatId) {
   const chat = state.chats.find(c => c.id === chatId);
   if (!chat) return;
@@ -3077,9 +3229,7 @@ window.addEventListener('resize', () => {
   }
   renderNavRail();
 });
-window.addEventListener('beforeunload', () => {
-  if (state.currentCall) endCall(true);
-});
+window.addEventListener('beforeunload', () => { if (state.currentCall) endCall(true); });
 </script>
 </body>
 </html>
