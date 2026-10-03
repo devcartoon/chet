@@ -67,6 +67,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   @keyframes ringShake { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-15deg); } 75% { transform: rotate(15deg); } }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes heartFloat { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-150px) scale(1.8); opacity: 0; } }
+  @keyframes pinPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); } 50% { box-shadow: 0 0 0 8px rgba(245,158,11,0); } }
 
   .anim-fade { animation: fadeIn 0.2s ease; }
   .anim-slide { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -76,6 +77,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   .spin { animation: spin 0.8s linear infinite; }
   .ring-shake { animation: ringShake 0.5s ease-in-out infinite; }
   .heart-float { animation: heartFloat 2s ease-out forwards; }
+  .pin-pulse { animation: pinPulse 2s ease-in-out infinite; }
 
   .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); }
   body.dark .glass { background: rgba(23, 33, 43, 0.9); }
@@ -87,8 +89,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   .gradient-purple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
   .tab-active { background: linear-gradient(135deg, #3478f6, #06b6d4); color: white !important; }
 
-  emoji-picker { --background: white; --border-color: rgba(0,0,0,0.08); }
-  body.dark emoji-picker { --background: #17212b; --border-color: rgba(255,255,255,0.08); --input-color: white; }
+  emoji-picker { --background: #17212b; --border-color: rgba(255,255,255,0.08); --input-border-color: rgba(255,255,255,0.1); --input-color: white; --button-hover-background: rgba(255,255,255,0.1); --category-emoji-size: 1.2rem; --emoji-size: 1.5rem; }
 
   #root { height: 100vh; height: 100dvh; overflow: hidden; }
   .app-shell { display: flex; height: 100%; overflow: hidden; position: relative; }
@@ -219,6 +220,32 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   .status-reaction-bubble button:hover { transform: scale(1.3); }
 
   .online-pulse { animation: pulse 2s ease-in-out infinite; }
+
+  /* Emoji picker enhancements */
+  .emoji-picker-wrapper {
+    width: 340px;
+    height: 420px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 200px);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .emoji-picker-wrapper emoji-picker {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Pinned bar */
+  #pinned-bar {
+    background: linear-gradient(90deg, rgba(245,158,11,0.15), rgba(245,158,11,0.08));
+    border-bottom: 1px solid rgba(245,158,11,0.2);
+  }
+  body.dark #pinned-bar {
+    background: linear-gradient(90deg, rgba(245,158,11,0.2), rgba(245,158,11,0.1));
+  }
 </style>
 </head>
 <body>
@@ -227,7 +254,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
 
 <script>
 // ============================================================
-//  SUPABASE
+//  SUPABASE CONFIG
 // ============================================================
 const SUPABASE_URL = 'https://gyoytwbpvulzvljuwfis.supabase.co';
 const SUPABASE_KEY = 'sb_publishable__2f2UEhPHE3d3cibhTga5w_NFmHWYZJ';
@@ -242,6 +269,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 // ============================================================
 const state = {
   user: null, profile: null, chats: [], activeChat: null, messages: {},
+  pinnedMessages: [],
   activeTab: 'all', activeSection: 'chats', searchQuery: '', replyTo: null,
   messageSubs: {}, globalSub: null, callSub: null,
   recording: false, recordingStart: 0,
@@ -412,6 +440,7 @@ async function signOut() {
   if (state.callChannel) { try { state.callChannel.unsubscribe(); } catch(e){} state.callChannel = null; }
   if (state.statusReactionChannel) { try { state.statusReactionChannel.unsubscribe(); } catch(e){} state.statusReactionChannel = null; }
   state.user = null; state.profile = null; state.chats = []; state.activeChat = null; state.messages = {};
+  state.pinnedMessages = [];
   try {
     Object.keys(localStorage).forEach(k => {
       if (k.startsWith('sb-') || k.includes('supabase') || k === 'supachat_auth' || k === 'supachat_theme') localStorage.removeItem(k);
@@ -441,7 +470,7 @@ async function searchUsersAll(query = '') {
 }
 
 // ============================================================
-//  DATA - CHATS (with deleted_chats filter)
+//  DATA - CHATS
 // ============================================================
 async function loadChats() {
   if (!state.user) return;
@@ -451,7 +480,6 @@ async function loadChats() {
   if (error) { console.error('loadChats:', error); return; }
   let chats = (data || []).map(row => row.chats).filter(Boolean);
   
-  // استبعد المحادثات المحذوفة من عندي
   if (chats.length) {
     try {
       const { data: deleted } = await sb.from('deleted_chats')
@@ -492,7 +520,6 @@ async function loadChats() {
   renderSidebarContent(); renderBottomNav(); renderNavRail();
 }
 
-// ⭐ حذف محادثة (من عندي / للطرفين)
 async function deleteChatAction(chatId, forBoth = false) {
   try {
     const chat = state.chats.find(c => c.id === chatId);
@@ -527,7 +554,6 @@ async function deleteChatAction(chatId, forBoth = false) {
   }
 }
 
-// ⭐ قائمة حذف المحادثة (مثل تيليجرام)
 function showDeleteChatMenu(chat) {
   $$('.delete-chat-menu').forEach(m => m.remove());
   const isPrivate = chat.type === 'private';
@@ -673,6 +699,125 @@ async function uploadFile(file, bucket = 'chat-media') {
 }
 
 // ============================================================
+//  PINNED MESSAGES
+// ============================================================
+async function loadPinnedMessages(chatId) {
+  try {
+    const { data, error } = await sb.from('pinned_messages')
+      .select('*, messages(*, sender:sender_id(id, full_name, username, avatar_url))')
+      .eq('chat_id', chatId)
+      .order('pinned_at', { ascending: false });
+    if (error) throw error;
+    state.pinnedMessages = (data || []).filter(p => p.messages);
+    renderPinnedBar();
+  } catch (e) {
+    console.warn('loadPinnedMessages:', e);
+    state.pinnedMessages = [];
+  }
+}
+
+async function pinMessage(messageId) {
+  if (!state.activeChat) return;
+  try {
+    const { error } = await sb.from('pinned_messages').insert({
+      chat_id: state.activeChat.id,
+      message_id: messageId,
+      pinned_by: state.user.id
+    });
+    if (error) {
+      if (error.code === '23505') {
+        toast('الرسالة مثبتة مسبقاً', 'info');
+        return;
+      }
+      throw error;
+    }
+    await loadPinnedMessages(state.activeChat.id);
+  } catch (e) {
+    console.error('pinMessage:', e);
+    toast('فشل التثبيت: ' + e.message, 'error');
+  }
+}
+
+async function unpinMessage(messageId) {
+  if (!state.activeChat) return;
+  try {
+    const { error } = await sb.from('pinned_messages')
+      .delete()
+      .eq('chat_id', state.activeChat.id)
+      .eq('message_id', messageId);
+    if (error) throw error;
+    await loadPinnedMessages(state.activeChat.id);
+  } catch (e) {
+    console.error('unpinMessage:', e);
+    toast('فشل إلغاء التثبيت: ' + e.message, 'error');
+  }
+}
+
+function renderPinnedBar() {
+  const existing = $('#pinned-bar');
+  if (existing) existing.remove();
+  
+  const chat = state.activeChat;
+  if (!chat) return;
+  const pinned = state.pinnedMessages || [];
+  if (!pinned.length) return;
+  
+  const header = $('#chat-window header');
+  if (!header) return;
+  
+  const pin = pinned[0];
+  const m = pin.messages;
+  const senderName = m.sender_id === state.user.id ? 'أنت' : (m.sender?.full_name || 'مستخدم');
+  let preview = '';
+  if (m.is_deleted) preview = '🚫 رسالة محذوفة';
+  else if (m.type === 'image') preview = '🖼️ صورة';
+  else if (m.type === 'video') preview = '🎥 فيديو';
+  else if (m.type === 'voice') preview = '🎙️ رسالة صوتية';
+  else if (m.type === 'audio') preview = '🎵 صوت';
+  else if (m.type === 'file') preview = '📎 ملف';
+  else preview = m.content || '';
+  
+  const bar = document.createElement('div');
+  bar.id = 'pinned-bar';
+  bar.className = 'px-3 py-2 flex items-center gap-2 cursor-pointer transition flex-shrink-0 anim-slide';
+  bar.innerHTML = `
+    <div class="w-1 h-8 rounded-full bg-amber-500 flex-shrink-0"></div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-1">
+        ${icon('pin', 'w-3 h-3 text-amber-500')}
+        <p class="text-amber-500 text-xs font-bold">رسالة مثبتة</p>
+        ${pinned.length > 1 ? `<span class="text-[10px] text-amber-500/70">(${pinned.length})</span>` : ''}
+      </div>
+      <p class="text-primary text-xs truncate mt-0.5">
+        <span class="font-bold">${esc(senderName)}: </span>${esc(preview.slice(0, 60))}
+      </p>
+    </div>
+    <button id="unpin-btn" class="p-1.5 rounded-lg hover:bg-amber-500/20 text-amber-500 flex-shrink-0" title="إلغاء التثبيت">
+      ${icon('x', 'w-4 h-4')}
+    </button>
+  `;
+  
+  header.parentNode.insertBefore(bar, header.nextSibling);
+  refreshIcons();
+  
+  bar.onclick = (e) => {
+    if (e.target.closest('#unpin-btn')) return;
+    const msgEl = $(`[data-id="${m.id}"]`);
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      msgEl.style.transition = 'background 0.5s';
+      msgEl.style.background = 'rgba(245, 158, 11, 0.2)';
+      setTimeout(() => { msgEl.style.background = ''; }, 1500);
+    }
+  };
+  
+  $('#unpin-btn').onclick = async (e) => {
+    e.stopPropagation();
+    await unpinMessage(m.id);
+  };
+}
+
+// ============================================================
 //  STATUSES
 // ============================================================
 async function loadAllActiveStatuses() {
@@ -792,7 +937,14 @@ function subscribeToChat(chatId) {
         const m = state.messages[cid].find(x => x.id === r.message_id);
         if (m && !m.reactions.some(x => x.id === r.id)) { m.reactions.push(r); if (state.activeChat?.id === cid) renderMessages(); }
       }
-    }).subscribe();
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pinned_messages', filter: `chat_id=eq.${chatId}` }, () => {
+      if (state.activeChat?.id === chatId) loadPinnedMessages(chatId);
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pinned_messages' }, () => {
+      if (state.activeChat?.id === chatId) loadPinnedMessages(chatId);
+    })
+    .subscribe();
   state.messageSubs[chatId] = ch;
 }
 
@@ -893,7 +1045,7 @@ function renderAuth() {
           <p id="auth-info" class="text-blue-400 text-sm text-center hidden p-2 rounded-lg bg-blue-500/10"></p>
           <button type="submit" id="auth-submit" class="gradient-btn w-full py-3.5 rounded-xl text-white font-bold"><span id="auth-submit-text">تسجيل الدخول</span></button>
         </form>
-        <p class="text-center text-white/30 text-xs mt-6">SupaChat v4.3</p>
+        <p class="text-center text-white/30 text-xs mt-6">SupaChat v5.0</p>
       </div>
     </div>`;
   let mode = 'login';
@@ -1079,9 +1231,7 @@ function renderChatList() {
   filtered.forEach(c => {
     const el = list.querySelector(`[data-id="${c.id}"]`);
     if (!el) return;
-    
     el.onclick = () => openChat(c.id);
-    
     const avatar = el.querySelector('[data-avatar]');
     if (avatar) avatar.onclick = (e) => {
       e.stopPropagation();
@@ -1089,7 +1239,6 @@ function renderChatList() {
       if (c.type === 'private' && o) openFullProfile(o.id);
       else { state.activeChat = c; renderChatWindow(); openChatInfo(); }
     };
-    
     const optionsBtn = el.querySelector('.chat-options-btn');
     if (optionsBtn) {
       optionsBtn.onclick = (e) => {
@@ -1099,13 +1248,11 @@ function renderChatList() {
         openChatMenu();
       };
     }
-    
     el.oncontextmenu = (e) => {
       e.preventDefault();
       state.activeChat = c;
       openChatMenu();
     };
-    
     let pressTimer;
     el.addEventListener('touchstart', () => {
       pressTimer = setTimeout(() => {
@@ -1117,7 +1264,6 @@ function renderChatList() {
     el.addEventListener('touchend', () => clearTimeout(pressTimer));
     el.addEventListener('touchmove', () => clearTimeout(pressTimer));
   });
-  
   refreshIcons();
 }
 
@@ -1439,7 +1585,7 @@ function renderSettingsSection(container) {
       <div class="p-4">
         <button id="btn-logout" class="w-full py-3 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm hover:bg-red-500/20 flex items-center justify-center gap-2">${icon('log-out', 'w-4 h-4')} تسجيل الخروج</button>
       </div>
-      <p class="text-center text-muted text-xs pb-6">SupaChat v4.3</p>
+      <p class="text-center text-muted text-xs pb-6">SupaChat v5.0</p>
     </div>`;
   refreshIcons();
   $('#row-theme').onclick = () => { toggleTheme(); toast(state.settings.theme === 'dark' ? '🌙 ليلي' : '☀️ نهاري', 'info'); renderSidebarContent(); renderNavRail(); renderSidebar(); };
@@ -1501,6 +1647,7 @@ async function openChat(chatId) {
   }
   renderChatWindow();
   await loadMessages(chatId);
+  await loadPinnedMessages(chatId);
   renderMessages();
   subscribeToChat(chatId);
   renderChatList();
@@ -1555,6 +1702,7 @@ function renderChatWindow() {
     </div>`;
   refreshIcons();
   renderMessages();
+  renderPinnedBar();
   $('#btn-back').onclick = () => { $('#sidebar')?.classList.remove('hidden-mobile'); $('#chat-window')?.classList.add('hidden'); $('#chat-window')?.classList.remove('flex'); };
   $('#chat-avatar-btn').onclick = () => { if (isPrivate && o) openFullProfile(o.id); else openChatInfo(); };
   $('#chat-info-btn').onclick = openChatInfo;
@@ -1566,7 +1714,7 @@ function renderChatWindow() {
   input.oninput = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 128) + 'px'; sendBtn.disabled = !input.value.trim(); };
   input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && state.settings.enterToSend) { e.preventDefault(); doSend(); } };
   sendBtn.onclick = doSend;
-  $('#btn-emoji').onclick = toggleEmoji;
+  $('#btn-emoji').onclick = (e) => { e.stopPropagation(); toggleEmoji(); };
   $('#btn-attach').onclick = () => $('#file-input').click();
   $('#btn-mic').onclick = startVoiceRecording;
   $('#file-input').onchange = (e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ''; };
@@ -1718,6 +1866,7 @@ function renderMessages() {
 function messageHTML(m, isMine, showAvatar) {
   const time = fmtTime(m.created_at);
   const isChannel = state.activeChat.type === 'channel';
+  const isPinned = (state.pinnedMessages || []).some(p => p.message_id === m.id);
   let content = '';
   if (m.is_deleted) {
     content = `<p class="italic opacity-50 text-sm">🚫 تم حذف هذه الرسالة</p>`;
@@ -1746,11 +1895,12 @@ function messageHTML(m, isMine, showAvatar) {
   reactions.forEach(r => counts[r.emoji] = (counts[r.emoji] || 0) + 1);
   const showSenderName = !isMine && showAvatar && state.activeChat.type !== 'private';
   return `
-    <div class="msg-wrapper message-hover flex ${isMine ? 'justify-start' : 'justify-end'} items-end gap-2" data-id="${m.id}">
+    <div class="msg-wrapper message-hover flex ${isMine ? 'justify-start' : 'justify-end'} items-end gap-2 relative" data-id="${m.id}">
       ${!isMine && !isChannel ? `<div class="w-7 flex-shrink-0">${showAvatar ? `<div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold overflow-hidden cursor-pointer hover:opacity-80" data-avatar-open="${m.sender_id}" style="background: ${m.avatar_url ? 'transparent' : avGrad(m.sender_id)};">${m.avatar_url ? `<img src="${esc(m.avatar_url)}" class="w-full h-full object-cover" />` : esc(m.full_name?.[0] || '?')}</div>` : ''}</div>` : ''}
       <div class="max-w-[78%] sm:max-w-md relative">
         ${showSenderName ? `<p class="text-[10px] text-blue-500 mb-1 mr-1 font-bold cursor-pointer hover:underline" data-avatar-open="${m.sender_id}">${esc(m.full_name || '')}</p>` : ''}
         <div class="msg-bubble px-3 py-2 rounded-2xl shadow-sm anim-slide ${bubbleClass}" style="${bubbleStyle}">
+          ${isPinned ? `<div class="absolute -top-2 ${isMine ? 'left-2' : 'right-2'} flex items-center gap-0.5 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-lg">${icon('pin', 'w-2.5 h-2.5')} مثبتة</div>` : ''}
           ${content}
           <div class="flex items-center justify-end gap-1 mt-1 text-[10px] opacity-70">${m.is_edited ? '<span class="italic">معدّلة</span>' : ''}<span>${time}</span>${isMine ? icon('check-check', 'w-3 h-3') : ''}</div>
           ${Object.keys(counts).length ? `<div class="absolute -bottom-2.5 ${isMine ? 'left-2' : 'right-2'} flex gap-0.5 surface rounded-full px-2 py-0.5 border border-soft shadow-md">${Object.entries(counts).map(([e, c]) => `<span class="text-xs">${e}${c > 1 ? `<sub class="opacity-60 text-[8px] ml-0.5">${c}</sub>` : ''}</span>`).join('')}</div>` : ''}
@@ -1762,20 +1912,53 @@ function messageHTML(m, isMine, showAvatar) {
 function showMessageMenu(msg, wrapper) {
   $$('.msg-menu').forEach(m => m.remove());
   const isMine = msg.sender_id === state.user.id;
+  const chat = state.activeChat;
+  const myMembership = chat?.members?.find(m => m.id === state.user.id);
+  const myRole = myMembership?.role || 'member';
+  const canPin = myRole === 'owner' || myRole === 'admin' || chat?.type === 'private';
+  const isPinned = (state.pinnedMessages || []).some(p => p.message_id === msg.id);
+  
   const emojis = ['❤️','👍','😂','😮','😢','🔥','🎉','👏','🙏','💯'];
   const menu = document.createElement('div');
   menu.className = 'msg-menu context-menu surface border border-soft anim-pop';
   menu.innerHTML = `
-    <div class="p-2 border-b border-soft"><div class="flex gap-0.5 flex-wrap justify-center max-w-[260px]">${emojis.map(e => `<button data-emoji="${e}" class="text-2xl p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 transition">${e}</button>`).join('')}</div></div>
+    <div class="p-2 border-b border-soft">
+      <div class="flex gap-0.5 flex-wrap justify-center max-w-[280px]">
+        ${emojis.map(e => `<button data-emoji="${e}" class="text-2xl p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 transition">${e}</button>`).join('')}
+      </div>
+    </div>
     <div class="p-1">
-      <button data-act="reply" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('reply', 'w-4 h-4')} رد</button>
-      ${isMine && msg.type === 'text' && !msg.is_deleted ? `<button data-act="edit" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('pencil', 'w-4 h-4')} تعديل</button>` : ''}
-      ${msg.content && !msg.is_deleted ? `<button data-act="copy" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('copy', 'w-4 h-4')} نسخ</button>` : ''}
-      ${msg.media_url ? `<button data-act="download" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">${icon('download', 'w-4 h-4')} حفظ</button>` : ''}
-      ${isMine ? `<button data-act="delete" class="w-full p-2.5 rounded-lg hover:bg-red-500/10 text-red-500 flex items-center gap-3 text-sm font-medium">${icon('trash-2', 'w-4 h-4')} حذف</button>` : ''}
+      <button data-act="reply" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">
+        ${icon('reply', 'w-4 h-4')} رد
+      </button>
+      ${canPin ? `
+        <button data-act="pin" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 ${isPinned ? 'text-amber-500' : 'text-primary'} flex items-center gap-3 text-sm font-medium">
+          ${icon('pin', 'w-4 h-4')} ${isPinned ? 'إلغاء التثبيت' : 'تثبيت الرسالة'}
+        </button>
+      ` : ''}
+      ${isMine && msg.type === 'text' && !msg.is_deleted ? `
+        <button data-act="edit" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">
+          ${icon('pencil', 'w-4 h-4')} تعديل
+        </button>
+      ` : ''}
+      ${msg.content && !msg.is_deleted ? `
+        <button data-act="copy" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">
+          ${icon('copy', 'w-4 h-4')} نسخ
+        </button>
+      ` : ''}
+      ${msg.media_url ? `
+        <button data-act="download" class="w-full p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-primary flex items-center gap-3 text-sm font-medium">
+          ${icon('download', 'w-4 h-4')} حفظ
+        </button>
+      ` : ''}
+      ${isMine ? `
+        <button data-act="delete" class="w-full p-2.5 rounded-lg hover:bg-red-500/10 text-red-500 flex items-center gap-3 text-sm font-medium">
+          ${icon('trash-2', 'w-4 h-4')} حذف
+        </button>
+      ` : ''}
     </div>`;
   const rect = wrapper.getBoundingClientRect();
-  const w = 260, h = 420;
+  const w = 280, h = 460;
   let top = rect.bottom + 5;
   if (top + h > window.innerHeight) top = Math.max(10, rect.top - h - 5);
   let left = rect.left + rect.width / 2 - w / 2;
@@ -1784,15 +1967,44 @@ function showMessageMenu(msg, wrapper) {
   menu.style.left = left + 'px';
   document.body.appendChild(menu);
   refreshIcons();
-  menu.querySelectorAll('[data-emoji]').forEach(b => b.onclick = async () => { await toggleReaction(msg.id, b.dataset.emoji); setTimeout(() => { loadMessages(state.activeChat.id).then(renderMessages); }, 300); menu.remove(); });
+  
+  menu.querySelectorAll('[data-emoji]').forEach(b => b.onclick = async () => {
+    await toggleReaction(msg.id, b.dataset.emoji);
+    setTimeout(() => { loadMessages(state.activeChat.id).then(renderMessages); }, 300);
+    menu.remove();
+  });
+  
   menu.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
     const act = b.dataset.act;
     menu.remove();
-    if (act === 'delete') { if (!confirm('حذف الرسالة؟')) return; await deleteMessage(msg.id); await loadMessages(state.activeChat.id); renderMessages(); toast('تم الحذف ✓', 'success'); }
-    else if (act === 'edit') { const t = prompt('عدّل:', msg.content); if (t && t !== msg.content) { await editMessage(msg.id, t); await loadMessages(state.activeChat.id); renderMessages(); toast('تم التعديل ✓', 'success'); } }
-    else if (act === 'copy') { navigator.clipboard.writeText(msg.content || '').then(() => toast('تم النسخ ✓', 'success')); }
-    else if (act === 'download') { downloadMedia(msg.media_url, msg.content || 'file'); }
-    else if (act === 'reply') {
+    if (act === 'delete') {
+      if (!confirm('حذف الرسالة؟')) return;
+      await deleteMessage(msg.id);
+      await loadMessages(state.activeChat.id);
+      renderMessages();
+      toast('تم الحذف ✓', 'success');
+    } else if (act === 'edit') {
+      const t = prompt('عدّل:', msg.content);
+      if (t && t !== msg.content) {
+        await editMessage(msg.id, t);
+        await loadMessages(state.activeChat.id);
+        renderMessages();
+        toast('تم التعديل ✓', 'success');
+      }
+    } else if (act === 'copy') {
+      navigator.clipboard.writeText(msg.content || '').then(() => toast('تم النسخ ✓', 'success'));
+    } else if (act === 'download') {
+      downloadMedia(msg.media_url, msg.content || 'file');
+    } else if (act === 'pin') {
+      if (isPinned) {
+        await unpinMessage(msg.id);
+        toast('✅ تم إلغاء التثبيت', 'success');
+      } else {
+        await pinMessage(msg.id);
+        toast('📌 تم تثبيت الرسالة', 'success');
+      }
+      renderMessages();
+    } else if (act === 'reply') {
       state.replyTo = msg.id;
       const rp = $('#reply-preview');
       rp.classList.remove('hidden');
@@ -1803,7 +2015,12 @@ function showMessageMenu(msg, wrapper) {
       $('#msg-input').focus();
     }
   });
-  setTimeout(() => { const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+  setTimeout(() => {
+    const close = (e) => {
+      if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); }
+    };
+    document.addEventListener('click', close);
+  }, 100);
 }
 
 // ============================================================
@@ -1849,22 +2066,47 @@ async function downloadMedia(url, filename) {
 }
 
 // ============================================================
-//  EMOJI
+//  EMOJI PICKER (FIXED)
 // ============================================================
 function toggleEmoji() {
   const wrap = $('#emoji-wrap');
   if (!wrap) return;
-  if (wrap.children.length) { wrap.innerHTML = ''; return; }
-  wrap.innerHTML = `<div class="absolute bottom-16 right-0 z-50 anim-pop"><emoji-picker></emoji-picker></div>`;
-  const picker = wrap.querySelector('emoji-picker');
+  
+  if (wrap.children.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+  
+  const pickerContainer = document.createElement('div');
+  pickerContainer.className = 'emoji-picker-wrapper absolute bottom-20 right-0 z-[300] anim-pop';
+  wrap.appendChild(pickerContainer);
+  
+  const picker = document.createElement('emoji-picker');
+  pickerContainer.appendChild(picker);
+  
+  // استقبال الإيموجي
   picker.addEventListener('emoji-click', (e) => {
     const input = $('#msg-input');
-    input.value += e.detail.unicode;
-    input.dispatchEvent(new Event('input'));
-    wrap.innerHTML = '';
-    input.focus();
+    if (input) {
+      const start = input.selectionStart || input.value.length;
+      const end = input.selectionEnd || input.value.length;
+      input.value = input.value.substring(0, start) + e.detail.unicode + input.value.substring(end);
+      input.selectionStart = input.selectionEnd = start + e.detail.unicode.length;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    }
   });
-  setTimeout(() => { const close = (ev) => { if (!wrap.contains(ev.target) && !$('#btn-emoji')?.contains(ev.target)) { wrap.innerHTML = ''; document.removeEventListener('click', close); } }; document.addEventListener('click', close); }, 100);
+  
+  // إغلاق عند النقر خارجاً
+  setTimeout(() => {
+    const close = (ev) => {
+      if (!wrap.contains(ev.target) && !$('#btn-emoji')?.contains(ev.target)) {
+        wrap.innerHTML = '';
+        document.removeEventListener('click', close);
+      }
+    };
+    document.addEventListener('click', close);
+  }, 100);
 }
 
 function showUploadProgress(label = 'جارٍ الرفع...') {
@@ -3314,12 +3556,11 @@ async function openEditChatModal(chatId) {
 }
 
 // ============================================================
-//  CHAT MENU ⭐ (with delete)
+//  CHAT MENU
 // ============================================================
 function openChatMenu() {
   const chat = state.activeChat;
   if (!chat) return;
-  const isPrivate = chat.type === 'private';
   const items = [
     { icon: 'info', label: 'معلومات المحادثة', act: openChatInfo },
     { icon: 'bell-off', label: 'كتم الإشعارات', act: () => toast('تم كتم الإشعارات ✓', 'success') },
@@ -3362,7 +3603,6 @@ function openChatMenu() {
 async function startPrivateChat(otherId) {
   try {
     await ensureFriendship(otherId);
-    // إزالة من deleted_chats إذا كانت موجودة
     try {
       await sb.from('deleted_chats').delete().eq('user_id', state.user.id).eq('chat_id', otherId);
     } catch (e) {}
@@ -3372,7 +3612,6 @@ async function startPrivateChat(otherId) {
       const chatIds = myChats.map(m => m.chat_id);
       const { data: theirMem } = await sb.from('chat_members').select('chat_id').eq('user_id', otherId).in('chat_id', chatIds);
       if (theirMem?.length) {
-        // احذف السجل من deleted_chats إذا كان موجوداً
         try { await sb.from('deleted_chats').delete().eq('user_id', state.user.id).eq('chat_id', theirMem[0].chat_id); } catch (e) {}
         await loadChats();
         state.activeSection = 'chats'; renderBottomNav(); renderNavRail(); renderSidebarContent();
